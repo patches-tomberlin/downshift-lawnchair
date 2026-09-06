@@ -55,6 +55,13 @@ Last commit: `aeae870a2a` (pushed to origin/16-dev), 2026-09-06.
   convention). Deferred alongside the package rename.
 - Eventually: extract the DownShift widget + settings screen into a standalone Play Store app
   (settings screen must reuse Lawnchair's real preference-UI components, not a re-skin).
+- Smooth the profile-switch transition. Right now `WorkspaceProfileManager.switchTo()` does a
+  full process restart (`restartLauncher()`) -- the same abrupt jump the underlying
+  backup-restore mechanism it's built on already has, not a crossfade. Was called out as
+  explicitly out-of-scope for v1 in the original profile-switching plan; a live, no-restart
+  swap would need a new `ModelDbController` method that swaps its cached `mOpenHelper` in place
+  (the way `attemptMigrateDb()` already does for grid changes), or short of that, some kind of
+  transition animation/overlay to mask the restart visually.
 
 ## Notes for whoever resumes
 
