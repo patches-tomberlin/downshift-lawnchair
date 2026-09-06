@@ -90,7 +90,7 @@ fun <T> useApplicationContext(creator: (Context) -> T): (Context) -> T = { it ->
     creator(it.applicationContext)
 }
 
-fun restartLauncher(context: Context) {
+fun restartLauncher(context: Context, activityOptions: android.os.Bundle? = null) {
     val pm = context.packageManager
     var intent: Intent? = Intent(Intent.ACTION_MAIN)
         .addCategory(Intent.CATEGORY_HOME)
@@ -100,11 +100,11 @@ fun restartLauncher(context: Context) {
         intent = pm.getLaunchIntentForPackage(context.packageName)
             ?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
-    restartLauncher(context, intent)
+    restartLauncher(context, intent, activityOptions)
 }
 
-fun restartLauncher(context: Context, intent: Intent?) {
-    context.startActivity(intent)
+fun restartLauncher(context: Context, intent: Intent?, activityOptions: android.os.Bundle? = null) {
+    context.startActivity(intent, activityOptions)
 
     // Create a pending intent so the application is restarted after System.exit(0) was called.
     // We use an AlarmManager to call this intent in 100ms

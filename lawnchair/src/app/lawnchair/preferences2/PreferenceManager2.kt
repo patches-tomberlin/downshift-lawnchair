@@ -39,6 +39,7 @@ import app.lawnchair.icons.shape.IconShape
 import app.lawnchair.icons.shape.IconShapeManager
 import app.lawnchair.predictions.PredictionMode
 import app.lawnchair.preferences.PreferenceManager as LawnchairPreferenceManager
+import app.lawnchair.profile.WorkspaceProfileId
 import app.lawnchair.qsb.providers.QsbSearchProvider
 import app.lawnchair.search.algorithms.LawnchairSearchAlgorithm
 import app.lawnchair.search.algorithms.engine.provider.web.WebSearchProvider
@@ -130,6 +131,15 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = HotseatMode.fromString(context.getString(R.string.config_default_hotseat_mode)),
         parse = { HotseatMode.fromString(it) },
         save = { it.toString() },
+    )
+
+    // Deliberately not wired to the reactive onEach{...}.launchIn(scope) pattern other prefs
+    // use here -- WorkspaceProfileManager needs the *old* value before writing the new one.
+    val activeWorkspaceProfile = preference(
+        key = stringPreferencesKey("active_workspace_profile"),
+        defaultValue = WorkspaceProfileId.PERSONAL,
+        parse = { WorkspaceProfileId.fromString(it) },
+        save = { it.name },
     )
 
     val iconShape = preference(

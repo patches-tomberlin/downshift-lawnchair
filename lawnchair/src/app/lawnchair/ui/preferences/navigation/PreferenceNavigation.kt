@@ -48,6 +48,8 @@ import app.lawnchair.ui.preferences.destinations.LauncherPopupPreference
 import app.lawnchair.ui.preferences.destinations.PickAppForGesture
 import app.lawnchair.ui.preferences.destinations.PredictionsPreferences
 import app.lawnchair.ui.preferences.destinations.PreferencesDashboard
+import app.lawnchair.ui.preferences.destinations.ProfilesPreferences
+import app.lawnchair.ui.preferences.destinations.WallpaperPickerScreen
 import app.lawnchair.ui.preferences.destinations.QuickstepPreferences
 import app.lawnchair.ui.preferences.destinations.SearchPreferences
 import app.lawnchair.ui.preferences.destinations.SearchProviderPreferences
@@ -197,6 +199,12 @@ fun PreferenceNavigation(
         composable<BackupAndRestore>(
             deepLinks = getDeepLink(BackupAndRestore),
         ) { BackupAndRestorePreference() }
+        composable<WorkspaceProfiles>(
+            deepLinks = getDeepLink(WorkspaceProfiles),
+        ) { ProfilesPreferences() }
+        composable<WallpaperPicker>(
+            deepLinks = getDeepLink(WallpaperPicker),
+        ) { WallpaperPickerScreen() }
 
         composable<About>(
             deepLinks = getDeepLink(About),

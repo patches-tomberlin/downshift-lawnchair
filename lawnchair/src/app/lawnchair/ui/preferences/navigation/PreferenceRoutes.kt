@@ -83,6 +83,16 @@ data object BackupAndRestore : PreferenceRootRoute, PreferenceDeepLink {
 }
 
 @Serializable
+data object WorkspaceProfiles : PreferenceRootRoute, PreferenceDeepLink {
+    override val deepLink = "$URI/workspace-profiles"
+}
+
+@Serializable
+data object WallpaperPicker : PreferenceRoute, PreferenceDeepLink {
+    override val deepLink = "$URI/wallpaper-picker"
+}
+
+@Serializable
 data object Gestures : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/gestures"
 }

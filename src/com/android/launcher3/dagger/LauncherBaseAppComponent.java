@@ -72,6 +72,8 @@ import app.lawnchair.icons.shape.IconShapeManager;
 import app.lawnchair.preferences.PreferenceManager;
 import app.lawnchair.predictions.LawnchairPredictionManager;
 import app.lawnchair.preferences2.PreferenceManager2;
+import app.lawnchair.profile.WorkspaceProfileManager;
+import app.lawnchair.silencer.SilencerController;
 import app.lawnchair.smartspace.provider.SmartspaceProvider;
 import app.lawnchair.theme.ThemeProvider;
 import app.lawnchair.ui.preferences.components.colorpreference.ColorPreferenceModelList;
@@ -140,6 +142,8 @@ public interface LauncherBaseAppComponent {
     LawnchairPredictionManager getLawnchairPredictionManager();
     PreferenceManager2 getPreferenceManager2();
     PreferenceManager getPreferenceManager();
+    WorkspaceProfileManager getWorkspaceProfileManager();
+    SilencerController getSilencerController();
     FontCache getFontCache();
     FontManager getFontManager();
     IconShapeManager getIconShapeManager();

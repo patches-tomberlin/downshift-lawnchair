@@ -8,7 +8,6 @@ import app.lawnchair.preferences2.PreferenceManager2.Companion.getInstance
 import app.lawnchair.preferences2.firstCached
 import com.android.launcher3.Launcher
 import com.android.launcher3.R
-import com.android.launcher3.Utilities
 import com.android.launcher3.logging.StatsLogManager.LauncherEvent
 import com.android.launcher3.popup.SystemShortcut
 import com.android.launcher3.views.OptionsPopupView.OptionItem
@@ -65,11 +64,6 @@ object LauncherOptionsPopup {
         val optionOrder = prefs2
             .launcherPopupOrder.firstCached().toLauncherOptions()
 
-        val wallpaperResString =
-            if (Utilities.existsStyleWallpapers(launcher)) R.string.styles_wallpaper_button_text else R.string.wallpapers
-        val wallpaperResDrawable =
-            if (Utilities.existsStyleWallpapers(launcher)) R.drawable.ic_palette else R.drawable.ic_wallpaper
-
         val optionsList = mapOf(
             "lock" to OptionItem(
                 launcher,
@@ -101,8 +95,8 @@ object LauncherOptionsPopup {
             ),
             "wallpaper" to OptionItem(
                 launcher,
-                wallpaperResString,
-                wallpaperResDrawable,
+                R.string.wallpapers,
+                R.drawable.ic_wallpaper,
                 LauncherEvent.IGNORE,
                 onStartWallpaperPicker,
             ),
@@ -187,8 +181,8 @@ object LauncherOptionsPopup {
             )
 
             "wallpaper" -> LauncherOptionMetadata(
-                label = R.string.styles_wallpaper_button_text,
-                icon = R.drawable.ic_palette,
+                label = R.string.wallpapers,
+                icon = R.drawable.ic_wallpaper,
             )
 
             "widgets" -> LauncherOptionMetadata(

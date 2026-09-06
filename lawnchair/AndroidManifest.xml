@@ -39,6 +39,7 @@
     <uses-permission android:name="android.permission.STATUS_BAR_SERVICE" tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.SUSPEND_APPS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <!-- Support non-cellular enabled devices -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
@@ -187,6 +188,22 @@
             android:exported="false"
             android:process=":bugReport"
             android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name="app.lawnchair.silencer.SilencerOffReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="app.lawnchair.widget.DownshiftHeaderWidget"
+            android:icon="@mipmap/ic_launcher_home"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/downshift_header_info" />
+        </receiver>
 
         <receiver
             android:name="app.lawnchair.smartspace.SmartspaceAppWidgetProvider"

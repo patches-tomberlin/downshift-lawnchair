@@ -85,6 +85,7 @@ import app.lawnchair.ui.preferences.navigation.PreferenceRootRoute
 import app.lawnchair.ui.preferences.navigation.Quickstep
 import app.lawnchair.ui.preferences.navigation.Search
 import app.lawnchair.ui.preferences.navigation.Smartspace
+import app.lawnchair.ui.preferences.navigation.WorkspaceProfiles
 import app.lawnchair.ui.util.addIf
 import app.lawnchair.util.isDefaultLauncher
 import app.lawnchair.util.restartLauncher
@@ -218,6 +219,14 @@ fun PreferencesDashboard(
                 iconResource = R.drawable.backup_restore,
                 onNavigate = { onNavigate(BackupAndRestore) },
                 isSelected = currentRoute is BackupAndRestore,
+            )
+
+            PreferenceCategory(
+                label = stringResource(R.string.profiles_label),
+                description = stringResource(R.string.profiles_description),
+                iconResource = R.drawable.ic_corp,
+                onNavigate = { onNavigate(WorkspaceProfiles) },
+                isSelected = currentRoute is WorkspaceProfiles,
             )
 
             PreferenceCategory(

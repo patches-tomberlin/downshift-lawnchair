@@ -198,6 +198,34 @@
     <string name="backup_and_restore_label">Backup and restore</string>
     <string name="backup_and_restore_description">Save current setup, restore backups</string>
 
+    <string name="profiles_label">Profiles</string>
+    <string name="profiles_description">Switch between Personal and Work layouts</string>
+    <string name="profile_personal">Personal</string>
+    <string name="profile_work">Work</string>
+    <string name="profile_active">Active</string>
+    <string name="profile_switch_failed">Couldn\'t switch profiles</string>
+    <string name="profile_switch_confirm_title">Switch to %1$s?</string>
+    <string name="profile_switch_confirm_body">Your current layout will be saved, and the launcher will restart with the other profile\'s layout.</string>
+    <string name="silencer_coming_soon">Silencer is coming soon</string>
+    <string name="hotseat_mode_downshift_controls">Profiles &amp; Silencer</string>
+    <string name="silencer_start_dialog_title">Silence notifications</string>
+    <string name="silencer_active_dialog_title">Notifications silenced</string>
+    <string name="silencer_preset_15m">15 minutes</string>
+    <string name="silencer_preset_30m">30 minutes</string>
+    <string name="silencer_preset_1h">1 hour</string>
+    <string name="silencer_preset_until_off">Until I turn it off</string>
+    <string name="silencer_extend_15m">+15 minutes</string>
+    <string name="silencer_turn_off">Turn off</string>
+    <string name="weather_icon_description">Current weather</string>
+    <string name="placeholder_temp">--°</string>
+    <string name="wallpaper_label">Wallpaper</string>
+    <string name="wallpaper_description">Set a wallpaper for the active profile</string>
+    <string name="wallpaper_choose_from_photos">Choose from Photos</string>
+    <string name="wallpaper_set_success">Wallpaper updated for this profile</string>
+    <string name="wallpaper_set_failed">Couldn\'t set that wallpaper</string>
+    <string name="wallpaper_tab_downshift">DownShift</string>
+    <string name="wallpaper_tab_photos">Photos</string>
+
     <string name="about_label">About</string>
 
     <string name="app_info_drop_target_label">App info</string>
@@ -540,6 +568,7 @@
 
     <!-- List of available providers -->
     <string name="smartspace_mode_label">At a Glance provider</string>
+    <string name="smartspace_mode_downshift_header" translatable="false">DownShift</string>
     <string name="smartspace_mode_lawnchair" translatable="false">Lawnchair</string>
     <string name="smartspace_mode_google">Google</string>
     <string name="smartspace_mode_google_search">Google Search</string>

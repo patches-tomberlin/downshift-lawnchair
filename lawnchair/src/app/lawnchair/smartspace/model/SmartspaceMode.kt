@@ -16,6 +16,7 @@ sealed class SmartspaceMode(
             "google" -> GoogleSmartspace
             "google_search" -> GoogleSearchSmartspace
             "smartspacer" -> Smartspacer
+            "downshift_header" -> DownshiftHeader
             else -> LawnchairSmartspace
         }
 
@@ -23,6 +24,7 @@ sealed class SmartspaceMode(
          * @return The list of all smartspace options
          */
         fun values() = listOf(
+            DownshiftHeader,
             LawnchairSmartspace,
             GoogleSmartspace,
             GoogleSearchSmartspace,
@@ -31,6 +33,14 @@ sealed class SmartspaceMode(
     }
 
     abstract fun isAvailable(context: Context): Boolean
+}
+
+object DownshiftHeader : SmartspaceMode(
+    nameResourceId = R.string.smartspace_mode_downshift_header,
+    layoutResourceId = R.layout.smartspace_downshift_header,
+) {
+    override fun toString() = "downshift_header"
+    override fun isAvailable(context: Context): Boolean = true
 }
 
 object LawnchairSmartspace : SmartspaceMode(

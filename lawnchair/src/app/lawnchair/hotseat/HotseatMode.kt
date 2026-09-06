@@ -14,6 +14,7 @@ sealed class HotseatMode(
         fun fromString(value: String): HotseatMode = when (value) {
             "disabled" -> DisabledHotseat
             "google_search" -> GoogleSearchHotseat
+            "downshift_controls" -> DownshiftControlsHotseat
             else -> LawnchairHotseat
         }
 
@@ -24,6 +25,7 @@ sealed class HotseatMode(
             DisabledHotseat,
             LawnchairHotseat,
             GoogleSearchHotseat,
+            DownshiftControlsHotseat,
         )
     }
 
@@ -52,6 +54,15 @@ object DisabledHotseat : HotseatMode(
     layoutResourceId = R.layout.empty_view,
 ) {
     override fun toString(): String = "disabled"
+
+    override fun isAvailable(context: Context): Boolean = true
+}
+
+object DownshiftControlsHotseat : HotseatMode(
+    nameResourceId = R.string.hotseat_mode_downshift_controls,
+    layoutResourceId = R.layout.search_container_hotseat_downshift,
+) {
+    override fun toString(): String = "downshift_controls"
 
     override fun isAvailable(context: Context): Boolean = true
 }
