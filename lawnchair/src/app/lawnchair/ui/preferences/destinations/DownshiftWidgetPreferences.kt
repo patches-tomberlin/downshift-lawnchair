@@ -4,13 +4,16 @@ import android.content.Intent
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -20,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.lawnchair.preferences.getAdapter
 import app.lawnchair.preferences2.preferenceManager2
+import app.lawnchair.profile.WorkspaceProfileId
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
 import app.lawnchair.ui.preferences.LocalNavController
 import app.lawnchair.ui.preferences.components.AdvancedColorPicker
@@ -50,7 +54,9 @@ fun DownshiftWidgetPreferences() {
     val navController = LocalNavController.current
     val prefs2 = preferenceManager2()
 
-    val fontColorArgbAdapter = prefs2.downshiftWidgetFontColorArgb.getAdapter()
+    val fontColorPersonalAdapter = prefs2.downshiftWidgetFontColorArgbPersonal.getAdapter()
+    val fontColorWorkAdapter = prefs2.downshiftWidgetFontColorArgbWork.getAdapter()
+    var selectedColorProfile by remember { mutableStateOf(WorkspaceProfileId.PERSONAL) }
     val fontWeightAdapter = prefs2.downshiftWidgetFontWeight.getAdapter()
     val dateFormatAdapter = prefs2.downshiftWidgetDateFormat.getAdapter()
     val showWeatherAdapter = prefs2.downshiftWidgetShowWeather.getAdapter()
@@ -63,19 +69,43 @@ fun DownshiftWidgetPreferences() {
     PreferenceLayout(
         label = stringResource(id = R.string.downshift_widget_label),
     ) {
+        PreferenceGroup(heading = stringResource(id = R.string.downshift_widget_profile_colors_heading)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = selectedColorProfile == WorkspaceProfileId.PERSONAL,
+                    onClick = { selectedColorProfile = WorkspaceProfileId.PERSONAL },
+                    label = { Text(stringResource(id = R.string.profile_personal)) },
+                )
+                FilterChip(
+                    selected = selectedColorProfile == WorkspaceProfileId.WORK,
+                    onClick = { selectedColorProfile = WorkspaceProfileId.WORK },
+                    label = { Text(stringResource(id = R.string.profile_work)) },
+                )
+            }
+            // key() forces a fresh AdvancedColorPicker instance (and thus a fresh internal
+            // HSV seed) per profile -- its own remembered hue/saturation/brightness/alpha
+            // state is only ever seeded once, so reusing the same instance across profiles
+            // would keep showing whichever profile's color was selected first.
+            key(selectedColorProfile) {
+                val activeAdapter = if (selectedColorProfile == WorkspaceProfileId.WORK) {
+                    fontColorWorkAdapter
+                } else {
+                    fontColorPersonalAdapter
+                }
+                AdvancedColorPicker(
+                    initialColorArgb = activeAdapter.state.value,
+                    onColorChangeFinished = { activeAdapter.onChange(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 8.dp),
+                )
+            }
+        }
+
         PreferenceGroup(heading = stringResource(id = R.string.downshift_widget_appearance_heading)) {
-            Text(
-                text = stringResource(id = R.string.downshift_widget_font_color_label),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
-            )
-            AdvancedColorPicker(
-                initialColorArgb = fontColorArgbAdapter.state.value,
-                onColorChangeFinished = { fontColorArgbAdapter.onChange(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-            )
             ListPreference(
                 adapter = fontWeightAdapter,
                 entries = remember {

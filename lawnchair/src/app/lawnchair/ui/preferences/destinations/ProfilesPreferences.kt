@@ -1,25 +1,37 @@
 package app.lawnchair.ui.preferences.destinations
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.lawnchair.preferences.getAdapter
 import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.profile.WorkspaceProfileId
 import app.lawnchair.profile.WorkspaceProfileManager
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
 import app.lawnchair.ui.preferences.LocalNavController
+import app.lawnchair.ui.preferences.components.AdvancedColorPicker
+import app.lawnchair.ui.preferences.components.controls.SwitchPreference
+import app.lawnchair.ui.preferences.components.layout.ExpandAndShrink
 import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
 import app.lawnchair.ui.preferences.components.layout.PreferenceLayout
 import app.lawnchair.ui.preferences.components.layout.PreferenceTemplate
@@ -34,8 +46,15 @@ fun ProfilesPreferences(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val navController = LocalNavController.current
-    val activeProfile by preferenceManager2().activeWorkspaceProfile.getAdapter()
+    val prefs2 = preferenceManager2()
+    val activeProfile by prefs2.activeWorkspaceProfile.getAdapter()
     val manager = WorkspaceProfileManager.getInstance(context)
+
+    val labelColorEnabledPersonalAdapter = prefs2.downshiftProfileIconLabelColorEnabledPersonal.getAdapter()
+    val labelColorArgbPersonalAdapter = prefs2.downshiftProfileIconLabelColorArgbPersonal.getAdapter()
+    val labelColorEnabledWorkAdapter = prefs2.downshiftProfileIconLabelColorEnabledWork.getAdapter()
+    val labelColorArgbWorkAdapter = prefs2.downshiftProfileIconLabelColorArgbWork.getAdapter()
+    var selectedColorProfile by remember { mutableStateOf(WorkspaceProfileId.PERSONAL) }
 
     PreferenceLayout(
         label = stringResource(id = R.string.profiles_label),
@@ -80,6 +99,53 @@ fun ProfilesPreferences(
                 },
                 onClick = { navController.navigate(WallpaperPicker) },
             )
+        }
+
+        PreferenceGroup(
+            heading = stringResource(id = R.string.profile_icon_label_color_heading),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = selectedColorProfile == WorkspaceProfileId.PERSONAL,
+                    onClick = { selectedColorProfile = WorkspaceProfileId.PERSONAL },
+                    label = { Text(stringResource(id = R.string.profile_personal)) },
+                )
+                FilterChip(
+                    selected = selectedColorProfile == WorkspaceProfileId.WORK,
+                    onClick = { selectedColorProfile = WorkspaceProfileId.WORK },
+                    label = { Text(stringResource(id = R.string.profile_work)) },
+                )
+            }
+
+            key(selectedColorProfile) {
+                val enabledAdapter = if (selectedColorProfile == WorkspaceProfileId.WORK) {
+                    labelColorEnabledWorkAdapter
+                } else {
+                    labelColorEnabledPersonalAdapter
+                }
+                val argbAdapter = if (selectedColorProfile == WorkspaceProfileId.WORK) {
+                    labelColorArgbWorkAdapter
+                } else {
+                    labelColorArgbPersonalAdapter
+                }
+
+                SwitchPreference(
+                    adapter = enabledAdapter,
+                    label = stringResource(id = R.string.profile_icon_label_color_custom_toggle),
+                )
+                ExpandAndShrink(visible = enabledAdapter.state.value) {
+                    AdvancedColorPicker(
+                        initialColorArgb = argbAdapter.state.value,
+                        onColorChangeFinished = { argbAdapter.onChange(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 8.dp),
+                    )
+                }
+            }
         }
     }
 }

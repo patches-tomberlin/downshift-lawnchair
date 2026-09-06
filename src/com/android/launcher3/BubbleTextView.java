@@ -287,6 +287,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
             setCompoundDrawablePadding(mDeviceProfile.iconDrawablePaddingPx);
             defaultIconSize = mDeviceProfile.iconSizePx;
             setCenterVertically(mDeviceProfile.iconCenterVertically);
+            LawnchairUtilsKt.overrideWorkspaceIconLabelColorForProfile(this);
         } else if (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_PREDICTION_ROW
                 || mDisplay == DISPLAY_SEARCH_RESULT_APP_ROW || mDisplay == DISPLAY_DRAWER_FOLDER) {
             setTextSize(TypedValue.COMPLEX_UNIT_PX,

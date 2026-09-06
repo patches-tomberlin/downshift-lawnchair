@@ -18,10 +18,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -34,9 +39,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
@@ -58,6 +65,7 @@ import app.lawnchair.wallpaper.WallpaperManagerCompat
 import com.android.launcher3.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * Replaces the default search bar in the hotseat with three controls, clustered closely together
@@ -77,7 +85,7 @@ fun DownshiftControlsUi(modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SearchButton(contrast = contrast, modifier = Modifier.fillMaxHeight())
-        ProfilePill(contrast = contrast, modifier = Modifier.fillMaxHeight())
+        ProfileSwitch(contrast = contrast, modifier = Modifier.fillMaxHeight())
         SilencerButton(contrast = contrast, modifier = Modifier.fillMaxHeight())
     }
 }
@@ -189,8 +197,34 @@ private fun SearchButton(contrast: HotseatContrast, modifier: Modifier = Modifie
     }
 }
 
+/**
+ * Scales a child up (or down) to a target height, preserving its aspect ratio. Plain
+ * [Modifier.scale] only affects drawing, not the measured layout size -- the Row would keep
+ * reserving the child's *unscaled* footprint while it visually renders larger, silently eating
+ * into [Arrangement.spacedBy]'s gap to its neighbors. This measures the child at its natural size,
+ * derives the scale factor from that actual measurement (rather than an assumed constant, since
+ * Material3's Switch doesn't expose its intrinsic track size as a public constant), and reports
+ * the scaled size as its own layout size -- so the Row's spacing is measured against the true
+ * visual footprint, not the pre-scale one.
+ */
+private fun Modifier.scaleToHeight(targetHeight: Dp): Modifier = this.layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val scale = targetHeight.roundToPx().toFloat() / placeable.height
+    val width = (placeable.width * scale).roundToInt()
+    val height = (placeable.height * scale).roundToInt()
+    layout(width, height) {
+        placeable.placeRelativeWithLayer(
+            x = ((width - placeable.width) / 2f).roundToInt(),
+            y = ((height - placeable.height) / 2f).roundToInt(),
+        ) {
+            scaleX = scale
+            scaleY = scale
+        }
+    }
+}
+
 @Composable
-private fun ProfilePill(contrast: HotseatContrast, modifier: Modifier = Modifier) {
+private fun ProfileSwitch(contrast: HotseatContrast, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val activeProfile by preferenceManager2().activeWorkspaceProfile.getAdapter()
@@ -199,31 +233,35 @@ private fun ProfilePill(contrast: HotseatContrast, modifier: Modifier = Modifier
     // Drives the confirmation dialog's visibility -- cleared as soon as the user answers it.
     var dialogTarget by remember { mutableStateOf<WorkspaceProfileId?>(null) }
 
-    val shape = RoundedCornerShape(percent = 50)
-    Row(
-        modifier = modifier
-            .height(HotseatButtonSize)
-            .clip(shape)
-            .background(contrast.background, shape),
+    val checked = activeProfile == WorkspaceProfileId.WORK
+
+    Box(
+        modifier = modifier.height(HotseatButtonSize),
+        contentAlignment = Alignment.Center,
     ) {
-        ProfilePillSlot(
-            selected = activeProfile == WorkspaceProfileId.PERSONAL,
-            contrast = contrast,
-            onClick = {
-                if (activeProfile != WorkspaceProfileId.PERSONAL) dialogTarget = WorkspaceProfileId.PERSONAL
+        Switch(
+            checked = checked,
+            onCheckedChange = { isWork ->
+                val target = if (isWork) WorkspaceProfileId.WORK else WorkspaceProfileId.PERSONAL
+                if (target != activeProfile) dialogTarget = target
             },
-        ) {
-            FilledPersonIcon(size = 32.dp, color = contrast.icon)
-        }
-        ProfilePillSlot(
-            selected = activeProfile == WorkspaceProfileId.WORK,
-            contrast = contrast,
-            onClick = {
-                if (activeProfile != WorkspaceProfileId.WORK) dialogTarget = WorkspaceProfileId.WORK
+            modifier = Modifier.scaleToHeight(HotseatButtonSize),
+            thumbContent = {
+                if (checked) {
+                    FilledBuildingIcon(size = SwitchDefaults.IconSize, color = contrast.icon)
+                } else {
+                    FilledPersonIcon(size = SwitchDefaults.IconSize, color = contrast.icon)
+                }
             },
-        ) {
-            FilledBuildingIcon(size = 32.dp, color = contrast.icon)
-        }
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = contrast.backgroundSelected,
+                uncheckedThumbColor = contrast.backgroundSelected,
+                checkedTrackColor = contrast.background,
+                uncheckedTrackColor = contrast.background,
+                checkedBorderColor = Color.Transparent,
+                uncheckedBorderColor = Color.Transparent,
+            ),
+        )
     }
 
     val target = dialogTarget
@@ -254,26 +292,6 @@ private fun ProfilePill(contrast: HotseatContrast, modifier: Modifier = Modifier
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun ProfilePillSlot(
-    selected: Boolean,
-    contrast: HotseatContrast,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    val shape = RoundedCornerShape(percent = 50)
-    Box(
-        modifier = Modifier
-            .size(width = HotseatButtonSize * 1.25f, height = HotseatButtonSize)
-            .clip(shape)
-            .background(if (selected) contrast.backgroundSelected else Color.Transparent, shape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
     }
 }
 
@@ -337,53 +355,100 @@ private fun SilencerButton(contrast: HotseatContrast, modifier: Modifier = Modif
         }
     }
 
-    if (dialogMode != SilencerDialogMode.NONE) {
+    if (dialogMode == SilencerDialogMode.START) {
+        SilencerTimePickerDialog(
+            onDismissRequest = { dialogMode = SilencerDialogMode.NONE },
+            onPickTime = { targetMillis ->
+                controller.startTimedSessionUntil(targetMillis)
+                refreshKey++
+                dialogMode = SilencerDialogMode.NONE
+            },
+            onPickIndefinite = {
+                controller.startIndefiniteSession()
+                refreshKey++
+                dialogMode = SilencerDialogMode.NONE
+            },
+        )
+    }
+
+    if (dialogMode == SilencerDialogMode.ACTIVE) {
         SilencerMenuPopup(onDismissRequest = { dialogMode = SilencerDialogMode.NONE }) {
-            when (dialogMode) {
-                SilencerDialogMode.START -> {
-                    SilencerMenuRow(stringResource(id = R.string.silencer_preset_15m)) {
-                        controller.startTimedSession(15 * 60_000L)
-                        refreshKey++
-                        dialogMode = SilencerDialogMode.NONE
-                    }
-                    SilencerMenuRow(stringResource(id = R.string.silencer_preset_30m)) {
-                        controller.startTimedSession(30 * 60_000L)
-                        refreshKey++
-                        dialogMode = SilencerDialogMode.NONE
-                    }
-                    SilencerMenuRow(stringResource(id = R.string.silencer_preset_1h)) {
-                        controller.startTimedSession(60 * 60_000L)
-                        refreshKey++
-                        dialogMode = SilencerDialogMode.NONE
-                    }
-                    SilencerMenuRow(stringResource(id = R.string.silencer_preset_until_off)) {
-                        controller.startIndefiniteSession()
-                        refreshKey++
-                        dialogMode = SilencerDialogMode.NONE
-                    }
+            SilencerMenuRow(
+                label = stringResource(id = R.string.silencer_turn_off),
+                icon = { BellSlashIcon(size = MenuRowIconSize, color = MaterialTheme.colorScheme.onSurface) },
+                onClick = {
+                    controller.cancelSession()
+                    refreshKey++
+                    dialogMode = SilencerDialogMode.NONE
+                },
+            )
+            if (untilMillis > 0) {
+                SilencerMenuRow(stringResource(id = R.string.silencer_extend_15m)) {
+                    controller.extend(15 * 60_000L)
+                    refreshKey++
+                    dialogMode = SilencerDialogMode.NONE
                 }
-                SilencerDialogMode.ACTIVE -> {
-                    SilencerMenuRow(
-                        label = stringResource(id = R.string.silencer_turn_off),
-                        icon = { BellSlashIcon(size = MenuRowIconSize, color = MaterialTheme.colorScheme.onSurface) },
-                        onClick = {
-                            controller.cancelSession()
-                            refreshKey++
-                            dialogMode = SilencerDialogMode.NONE
-                        },
-                    )
-                    if (untilMillis > 0) {
-                        SilencerMenuRow(stringResource(id = R.string.silencer_extend_15m)) {
-                            controller.extend(15 * 60_000L)
-                            refreshKey++
-                            dialogMode = SilencerDialogMode.NONE
-                        }
-                    }
-                }
-                SilencerDialogMode.NONE -> Unit
             }
         }
     }
+}
+
+/**
+ * Replaces the old fixed 15m/30m/1h presets with a duration picker built from the same M3
+ * [TimePicker] dial/text-input component -- reinterpreted here as "hours : minutes from now"
+ * rather than a clock time, so it looks and behaves like the familiar time picker while actually
+ * picking a duration. Always forced to 24-hour mode with no AM/PM toggle, since that framing only
+ * makes sense for an actual time of day, not a span of time. "Until I turn it off" is retained as
+ * a one-tap bypass that skips the dial entirely.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SilencerTimePickerDialog(
+    onDismissRequest: () -> Unit,
+    onPickTime: (targetMillis: Long) -> Unit,
+    onPickIndefinite: () -> Unit,
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = 0,
+        initialMinute = 30,
+        is24Hour = true,
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(id = R.string.silencer_start_dialog_title)) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TimePicker(state = timePickerState)
+                TextButton(
+                    onClick = onPickIndefinite,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(text = stringResource(id = R.string.silencer_preset_until_off))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onPickTime(resolveDurationTargetMillis(timePickerState.hour, timePickerState.minute)) },
+            ) {
+                Text(text = stringResource(id = R.string.silencer_set_time))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(id = android.R.string.cancel))
+            }
+        },
+    )
+}
+
+private fun resolveDurationTargetMillis(hours: Int, minutes: Int): Long {
+    val durationMillis = (hours * 60L + minutes) * 60_000L
+    return System.currentTimeMillis() + durationMillis
 }
 
 /**

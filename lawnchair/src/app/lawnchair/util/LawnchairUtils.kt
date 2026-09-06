@@ -51,6 +51,7 @@ import androidx.core.os.UserManagerCompat
 import app.lawnchair.preferences.PreferenceManager
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.preferences2.firstCached
+import app.lawnchair.profile.WorkspaceProfileId
 import app.lawnchair.theme.color.ColorOption
 import app.lawnchair.theme.color.tokens.ColorTokens
 import com.android.launcher3.BaseActivity
@@ -154,6 +155,32 @@ fun overrideAllAppsTextColor(textView: TextView) {
     val opacity = PreferenceManager.getInstance(context).drawerOpacity.get()
     if (luminance > 0.5f || opacity <= 0.3f) {
         textView.setTextColor(Themes.getAttrColor(context, R.attr.allAppsAlternateTextColor))
+    }
+}
+
+/**
+ * Applies the active workspace profile's custom icon-label color override, if the user turned
+ * one on for that profile in Settings -> Profiles. Left untouched (falls through to the normal
+ * theme-driven ?attr/workspaceTextColor) when the override is off, which is the default -- this
+ * only ever adds a color choice on top of the existing Auto/Light/Dark setting, never replaces
+ * it. Home-screen icons only (DISPLAY_WORKSPACE), matching the existing scope of per-profile
+ * home-screen appearance (layout, wallpaper) -- the app drawer is shared across profiles.
+ */
+fun overrideWorkspaceIconLabelColorForProfile(textView: TextView) {
+    val context = textView.context
+    val prefs2 = PreferenceManager2.getInstance(context)
+    val activeProfile = prefs2.activeWorkspaceProfile.firstCached(prefs2)
+    val enabled: Boolean
+    val colorArgb: Int
+    if (activeProfile == WorkspaceProfileId.WORK) {
+        enabled = prefs2.downshiftProfileIconLabelColorEnabledWork.firstCached(prefs2)
+        colorArgb = prefs2.downshiftProfileIconLabelColorArgbWork.firstCached(prefs2)
+    } else {
+        enabled = prefs2.downshiftProfileIconLabelColorEnabledPersonal.firstCached(prefs2)
+        colorArgb = prefs2.downshiftProfileIconLabelColorArgbPersonal.firstCached(prefs2)
+    }
+    if (enabled) {
+        textView.setTextColor(colorArgb)
     }
 }
 

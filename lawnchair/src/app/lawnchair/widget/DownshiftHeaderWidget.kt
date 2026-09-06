@@ -16,6 +16,7 @@ import android.view.View
 import android.widget.RemoteViews
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.preferences2.firstCached
+import app.lawnchair.profile.WorkspaceProfileId
 import app.lawnchair.widget.weather.WeatherRepositoryFactory
 import com.android.launcher3.R
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +62,10 @@ class DownshiftHeaderWidget : AppWidgetProvider() {
     private fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
         val prefs = PreferenceManager2.getInstance(context)
         val fontWeight = prefs.downshiftWidgetFontWeight.firstCached(prefs)
-        val fontColorArgb = prefs.downshiftWidgetFontColorArgb.firstCached(prefs)
+        val fontColorArgb = when (prefs.activeWorkspaceProfile.firstCached(prefs)) {
+            WorkspaceProfileId.WORK -> prefs.downshiftWidgetFontColorArgbWork.firstCached(prefs)
+            WorkspaceProfileId.PERSONAL -> prefs.downshiftWidgetFontColorArgbPersonal.firstCached(prefs)
+        }
         val dateFormat = prefs.downshiftWidgetDateFormat.firstCached(prefs)
         val showWeather = prefs.downshiftWidgetShowWeather.firstCached(prefs)
 

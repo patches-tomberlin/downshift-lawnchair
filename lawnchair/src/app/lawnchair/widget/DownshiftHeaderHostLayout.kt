@@ -19,26 +19,31 @@ class DownshiftHeaderHostLayout(context: Context, attrs: AttributeSet?) : FrameL
 
     private val composeView = ComposeView(context)
 
-    override fun onFinishInflate() {
-        super.onFinishInflate()
-
-        composeView.apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            setContent {
-                LawnchairTheme {
-                    ProvideLifecycleState {
-                        DownshiftHeaderWidgetUi()
-                    }
+    private fun setWidgetContent() {
+        composeView.setContent {
+            LawnchairTheme {
+                ProvideLifecycleState {
+                    DownshiftHeaderWidgetUi()
                 }
             }
         }
+    }
 
-        // Same fix as LawnQsbLayout/DownshiftControlsLayout: stop Compose content from
-        // disappearing when this view reattaches (e.g. returning from another activity).
+    override fun onFinishInflate() {
+        super.onFinishInflate()
+
+        composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+        setWidgetContent()
+
+        // This widget's content depends on an async bind flow (HeadlessWidgetsManager) that can
+        // launch a separate Activity (BlankActivity) mid-flight, which detaches this ComposeView
+        // from its window. DisposeOnDetachedFromWindow then tears down the composition -- so on
+        // reattach we must call setContent() again to establish a fresh composition (which
+        // re-reads current bind state) rather than leaving the slot permanently blank.
         composeView.addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
                 requestLayout()
-                composeView.disposeComposition()
+                setWidgetContent()
             }
             override fun onViewDetachedFromWindow(v: View) {
                 composeView.disposeComposition()

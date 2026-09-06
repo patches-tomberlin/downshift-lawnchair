@@ -62,14 +62,16 @@ class SilencerController @Inject constructor(
     /** Non-zero only while a timed (not indefinite) session is running. */
     fun activeUntilMillis(): Long = sessionPrefs.getLong(KEY_UNTIL_MILLIS, 0L)
 
-    fun startTimedSession(durationMillis: Long) {
-        val untilMillis = System.currentTimeMillis() + durationMillis
+    /** [targetMillis] is an absolute end time (epoch millis), not a duration -- callers (the
+     *  duration-picker UI) already resolved a picked "hours : minutes from now" span into a
+     *  concrete timestamp. */
+    fun startTimedSessionUntil(targetMillis: Long) {
         setPolicyFilterOn()
         sessionPrefs.edit()
-            .putLong(KEY_UNTIL_MILLIS, untilMillis)
+            .putLong(KEY_UNTIL_MILLIS, targetMillis)
             .putBoolean(KEY_INDEFINITE_ACTIVE, false)
             .commit()
-        scheduleOffAlarm(untilMillis)
+        scheduleOffAlarm(targetMillis)
     }
 
     fun startIndefiniteSession() {

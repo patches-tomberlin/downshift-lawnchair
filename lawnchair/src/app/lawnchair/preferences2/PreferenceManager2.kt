@@ -139,20 +139,32 @@ class PreferenceManager2 @Inject constructor(
 
     // Deliberately not wired to the reactive onEach{...}.launchIn(scope) pattern other prefs
     // use here -- WorkspaceProfileManager needs the *old* value before writing the new one.
+    // onSet is safe though: WorkspaceProfileManager.switchTo() captures the old profile into a
+    // local val before calling .set(target), so this doesn't disturb that ordering -- it just
+    // pushes a widget redraw so the DownShift widget's per-profile color picks up immediately,
+    // ahead of the full-process restart the profile switch also triggers.
     val activeWorkspaceProfile = preference(
         key = stringPreferencesKey("active_workspace_profile"),
         defaultValue = WorkspaceProfileId.PERSONAL,
         parse = { WorkspaceProfileId.fromString(it) },
         save = { it.name },
+        onSet = { requestDownshiftWidgetUpdate() },
     )
 
     // Settings that change how the DownShift header widget looks or behaves. Each pushes a
     // live redraw via requestDownshiftWidgetUpdate() rather than a full launcher restart --
     // these are widget-only concerns, unrelated to anything reloadHelper handles.
-    // Stores the full ARGB int from the custom color picker (alpha included) -- defaults to
-    // pure opaque white.
-    val downshiftWidgetFontColorArgb = preference(
-        key = intPreferencesKey("downshift_widget_font_color_argb"),
+    // Full ARGB int from the custom color picker (alpha included), one per workspace profile
+    // -- Personal and Work can each have their own clock text color. Both default to pure
+    // opaque white. The widget itself picks whichever applies via activeWorkspaceProfile.
+    val downshiftWidgetFontColorArgbPersonal = preference(
+        key = intPreferencesKey("downshift_widget_font_color_argb_personal"),
+        defaultValue = 0xFFFFFFFF.toInt(),
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetFontColorArgbWork = preference(
+        key = intPreferencesKey("downshift_widget_font_color_argb_work"),
         defaultValue = 0xFFFFFFFF.toInt(),
         onSet = { requestDownshiftWidgetUpdate() },
     )
@@ -210,6 +222,38 @@ class PreferenceManager2 @Inject constructor(
     private fun requestDownshiftWidgetUpdate() {
         DownshiftHeaderWidget.requestUpdate(context)
     }
+
+    // Optional per-profile override for home-screen icon label text color, layered on top of
+    // the existing workspaceTextColor Auto/Light/Dark setting below -- when disabled (the
+    // default), labels keep their normal theme-driven color untouched; when enabled,
+    // BubbleTextView explicitly applies this ARGB color instead (see
+    // overrideWorkspaceIconLabelColorForProfile() in LawnchairUtils.kt, called from
+    // BubbleTextView's DISPLAY_WORKSPACE constructor branch). reloadGrid() forces icon views
+    // to reconstruct and re-read these, the same trigger notificationDotColor/
+    // hotseatBackgroundColor already use for their own ColorOption-based custom colors.
+    val downshiftProfileIconLabelColorEnabledPersonal = preference(
+        key = booleanPreferencesKey("downshift_profile_icon_label_color_enabled_personal"),
+        defaultValue = false,
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
+    val downshiftProfileIconLabelColorArgbPersonal = preference(
+        key = intPreferencesKey("downshift_profile_icon_label_color_argb_personal"),
+        defaultValue = 0xFFFFFFFF.toInt(),
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
+    val downshiftProfileIconLabelColorEnabledWork = preference(
+        key = booleanPreferencesKey("downshift_profile_icon_label_color_enabled_work"),
+        defaultValue = false,
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
+    val downshiftProfileIconLabelColorArgbWork = preference(
+        key = intPreferencesKey("downshift_profile_icon_label_color_argb_work"),
+        defaultValue = 0xFFFFFFFF.toInt(),
+        onSet = { reloadHelper.reloadGrid() },
+    )
 
     val iconShape = preference(
         key = stringPreferencesKey(name = "icon_shape"),
