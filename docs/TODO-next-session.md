@@ -62,6 +62,9 @@ Last commit: `aeae870a2a` (pushed to origin/16-dev), 2026-09-06.
   swap would need a new `ModelDbController` method that swaps its cached `mOpenHelper` in place
   (the way `attemptMigrateDb()` already does for grid changes), or short of that, some kind of
   transition animation/overlay to mask the restart visually.
+- Make the app drawer and search screen background 50% more opaque, for better legibility
+  (user-requested; not scoped yet -- find the relevant scrim/background alpha values, likely in
+  the all-apps/search Compose or drawable resources).
 
 ## Notes for whoever resumes
 
