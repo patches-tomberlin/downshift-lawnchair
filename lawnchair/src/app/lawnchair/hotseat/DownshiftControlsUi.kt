@@ -1,7 +1,7 @@
 package app.lawnchair.hotseat
 
 import android.widget.Toast
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -43,7 +41,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
@@ -204,20 +201,13 @@ private fun SearchButton(contrast: HotseatContrast, modifier: Modifier = Modifie
     }
 }
 
-// A custom-drawn track+thumb rather than Material3's Switch, whose fixed internal track/thumb
-// ratio (SwitchTokens.TrackHeight/IconHandleHeight, neither public) can't be scaled to make the
-// thumb match HotseatButtonSize within the hotseat's ~52dp usable slot height (qsb_widget_height
-// minus its vertical padding -- shared with Google's search-bar hotseat mode, so not ours to grow).
-// The outer layout box is sized to the LARGER of track/thumb (the thumb) rather than the track:
-// a Box passes its own resolved height down to its children as a hard max, so if the track's
-// height were the outer box's size, the thumb's .size() request would silently get clamped down
-// to fit inside it instead of overflowing above/below as intended -- exactly the bug that made the
-// thumb render undersized and flush to one edge instead of centered. Making the track itself an
-// inner, center-aligned child (rather than the outer sizing box) sidesteps that entirely.
-private val ProfileSwitchTrackHeight = HotseatButtonSize * 0.75f
-private val ProfileSwitchTrackWidth = 80.dp * 1.5f * 0.75f
+// A custom expandable pill rather than a fixed-width track+thumb: collapsed, it's a single circle
+// matching Search/Silencer exactly; tapping it expands into a two-icon row (Personal, Work) with
+// the active one highlighted, and tapping either icon there switches profiles immediately and
+// collapses back to a circle showing the new active profile. Modifier.animateContentSize()
+// animates the width change between the two states, which also pushes/pulls Search and Silencer
+// since all three share the parent Row's spacedBy/centered arrangement.
 private val ProfileSwitchThumbSize = HotseatButtonSize
-private val ProfileSwitchThumbTravel = ProfileSwitchTrackWidth - ProfileSwitchThumbSize
 private val ProfileSwitchShape = RoundedCornerShape(percent = 50)
 
 // Active started matched to SearchButton's ic_qsb_search glyph (22dp); inactive started smaller
@@ -227,9 +217,9 @@ private val ProfileSwitchShape = RoundedCornerShape(percent = 50)
 private val ProfileSwitchActiveIconSize = 22.dp * 1.5f
 private val ProfileSwitchInactiveIconSize = 14.dp * 2f
 
-// The active profile's thumb is deliberately NOT wallpaper-adaptive like the rest of the hotseat
-// controls: a fixed white circle with the same gray as the track's own pill color for the glyph,
-// so it reads the same regardless of wallpaper.
+// The active profile's circle is deliberately NOT wallpaper-adaptive like the rest of the hotseat
+// controls: a fixed white circle with the same gray as the pill's own color for the glyph, so it
+// reads the same regardless of wallpaper.
 private val ProfileSwitchActiveThumbColor = Color(0xFFF2F2F5)
 private val ProfileSwitchActiveIconColor = Color(0xFF33343A)
 
@@ -240,118 +230,84 @@ private fun ProfileSwitch(contrast: HotseatContrast, modifier: Modifier = Modifi
     val activeProfile by preferenceManager2().activeWorkspaceProfile.getAdapter()
     val manager = remember { WorkspaceProfileManager.getInstance(context) }
 
-    // Drives the confirmation dialog's visibility -- cleared as soon as the user answers it.
-    var dialogTarget by remember { mutableStateOf<WorkspaceProfileId?>(null) }
+    var isExpanded by remember { mutableStateOf(false) }
 
-    val checked = activeProfile == WorkspaceProfileId.WORK
-    val thumbOffsetX by animateDpAsState(
-        targetValue = if (checked) ProfileSwitchThumbTravel else 0.dp,
-        label = "profileSwitchThumbOffset",
-    )
-    // Centered within whichever end of the track the thumb currently leaves uncovered (the
-    // ProfileSwitchThumbTravel-wide strip opposite the thumb), so the smaller inactive icon never
-    // sits under it.
-    val inactiveIconCenterX by animateDpAsState(
-        targetValue = if (checked) ProfileSwitchThumbTravel / 2 else ProfileSwitchTrackWidth - ProfileSwitchThumbTravel / 2,
-        label = "profileSwitchInactiveIconCenterX",
-    )
-
-    // Outer box takes the incoming (fillMaxHeight) modifier AS-IS, uncombined with any fixed
-    // .height() of our own -- exactly the HotseatCircleButton pattern above, which centers its
-    // 48dp circle via contentAlignment on an untouched fillMaxHeight() box rather than chaining
-    // .height(48.dp) onto that same modifier. Chaining our own fixed height directly onto the
-    // incoming fillMaxHeight() modifier (the previous version of this code) measurably threw off
-    // this control's vertical position relative to Search/Silencer -- confirmed by pixel-measuring
-    // screenshots, not guessed -- so the fixed-size content now lives on a separate inner box,
-    // matching the working pattern instead of a variant of it.
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Box(
-            // Sized to the thumb (the larger element) so neither it nor the inactive icon get
-            // clamped -- see the comment above ProfileSwitchTrackHeight.
-            modifier = Modifier
-                .height(ProfileSwitchThumbSize)
-                .width(ProfileSwitchTrackWidth)
-                .clip(ProfileSwitchShape)
-                .toggleable(
-                    value = checked,
-                    role = Role.Switch,
-                    onValueChange = { isWork ->
-                        val target = if (isWork) WorkspaceProfileId.WORK else WorkspaceProfileId.PERSONAL
-                        if (target != activeProfile) dialogTarget = target
-                    },
-                ),
-        ) {
-            Box(
-                // The inactive icon is a child of the pill itself (not a sibling positioned with
-                // manually-computed offsets against the outer box) so Compose's own alignment
-                // centers it against the pill's true, actual bounds directly.
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .height(ProfileSwitchTrackHeight)
-                    .clip(ProfileSwitchShape)
-                    .background(contrast.background, ProfileSwitchShape),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .offset(x = inactiveIconCenterX - ProfileSwitchInactiveIconSize / 2)
-                        .size(ProfileSwitchInactiveIconSize),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val inactiveColor = contrast.icon
-                    if (checked) {
-                        FilledPersonIcon(size = ProfileSwitchInactiveIconSize, color = inactiveColor)
-                    } else {
-                        FilledBuildingIcon(size = ProfileSwitchInactiveIconSize, color = inactiveColor)
-                    }
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .offset(x = thumbOffsetX)
-                    .size(ProfileSwitchThumbSize)
-                    .clip(CircleShape)
-                    .background(ProfileSwitchActiveThumbColor, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (checked) {
-                    FilledBuildingIcon(size = ProfileSwitchActiveIconSize, color = ProfileSwitchActiveIconColor)
-                } else {
-                    FilledPersonIcon(size = ProfileSwitchActiveIconSize, color = ProfileSwitchActiveIconColor)
+    val onSelect: (WorkspaceProfileId) -> Unit = { target ->
+        isExpanded = false
+        if (target != activeProfile) {
+            scope.launch {
+                val success = manager.switchTo(target)
+                if (!success) {
+                    Toast.makeText(context, R.string.profile_switch_failed, Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    val target = dialogTarget
-    if (target != null) {
-        val targetLabel = stringResource(
-            id = if (target == WorkspaceProfileId.WORK) R.string.profile_work else R.string.profile_personal,
-        )
-        AlertDialog(
-            onDismissRequest = { dialogTarget = null },
-            title = { Text(text = stringResource(id = R.string.profile_switch_confirm_title, targetLabel)) },
-            text = { Text(text = stringResource(id = R.string.profile_switch_confirm_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    dialogTarget = null
-                    scope.launch {
-                        val success = manager.switchTo(target)
-                        if (!success) {
-                            Toast.makeText(context, R.string.profile_switch_failed, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }) {
-                    Text(text = stringResource(id = android.R.string.ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { dialogTarget = null }) {
-                    Text(text = stringResource(id = android.R.string.cancel))
-                }
-            },
-        )
+    // Outer box takes the incoming (fillMaxHeight) modifier AS-IS, uncombined with any fixed
+    // .height() of our own -- exactly the HotseatCircleButton pattern above, which centers its
+    // 48dp circle via contentAlignment on an untouched fillMaxHeight() box rather than chaining
+    // .height(48.dp) onto that same modifier. Chaining our own fixed height directly onto the
+    // incoming fillMaxHeight() modifier (a previous version of this code) measurably threw off
+    // this control's vertical position relative to Search/Silencer -- confirmed by pixel-measuring
+    // screenshots, not guessed -- so the fixed-size content lives on a separate inner element,
+    // matching the working pattern instead of a variant of it.
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Row(
+            modifier = Modifier
+                .height(ProfileSwitchThumbSize)
+                .animateContentSize()
+                .clip(ProfileSwitchShape)
+                .background(contrast.background, ProfileSwitchShape),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (isExpanded) {
+                ProfileSwitchSlot(
+                    profile = WorkspaceProfileId.PERSONAL,
+                    isActive = activeProfile == WorkspaceProfileId.PERSONAL,
+                    contrast = contrast,
+                    onClick = { onSelect(WorkspaceProfileId.PERSONAL) },
+                )
+                ProfileSwitchSlot(
+                    profile = WorkspaceProfileId.WORK,
+                    isActive = activeProfile == WorkspaceProfileId.WORK,
+                    contrast = contrast,
+                    onClick = { onSelect(WorkspaceProfileId.WORK) },
+                )
+            } else {
+                ProfileSwitchSlot(
+                    profile = activeProfile,
+                    isActive = true,
+                    contrast = contrast,
+                    onClick = { isExpanded = true },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileSwitchSlot(
+    profile: WorkspaceProfileId,
+    isActive: Boolean,
+    contrast: HotseatContrast,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(ProfileSwitchThumbSize)
+            .clip(CircleShape)
+            .let { if (isActive) it.background(ProfileSwitchActiveThumbColor, CircleShape) else it }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        val iconSize = if (isActive) ProfileSwitchActiveIconSize else ProfileSwitchInactiveIconSize
+        val iconColor = if (isActive) ProfileSwitchActiveIconColor else contrast.icon.copy(alpha = 0.5f)
+        if (profile == WorkspaceProfileId.WORK) {
+            FilledBuildingIcon(size = iconSize, color = iconColor)
+        } else {
+            FilledPersonIcon(size = iconSize, color = iconColor)
+        }
     }
 }
 

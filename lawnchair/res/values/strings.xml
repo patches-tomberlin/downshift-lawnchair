@@ -206,8 +206,6 @@
     <string name="profile_switch_failed">Couldn\'t switch profiles</string>
     <string name="profile_icon_label_color_heading">App Label Color</string>
     <string name="profile_icon_label_color_custom_toggle">Custom color</string>
-    <string name="profile_switch_confirm_title">Switch to %1$s?</string>
-    <string name="profile_switch_confirm_body">Your current layout will be saved, and the launcher will restart with the other profile\'s layout.</string>
     <string name="zen_mode_sync_heading">Zen Mode Sync</string>
     <string name="zen_mode_sync_label">Enable Zen Mode Sync</string>
     <string name="zen_mode_sync_description">Link Personal and Work to their own Do Not Disturb rule. Choose which apps each one silences in Android\'s own Do Not Disturb settings -- switching profiles here turns the matching rule on automatically.</string>
