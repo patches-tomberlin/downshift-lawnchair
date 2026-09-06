@@ -275,9 +275,14 @@ private fun ProfileSwitch(contrast: HotseatContrast, modifier: Modifier = Modifi
                     onClick = { onSelect(WorkspaceProfileId.WORK) },
                 )
             } else {
+                // Collapsed: no white highlight of its own -- the Row's own contrast.background
+                // shows through behind it and the glyph uses contrast.icon, so this circle reads
+                // as the exact same color scheme as Search/Silencer rather than the white
+                // "selected" look the icon has while the pill is expanded.
                 ProfileSwitchSlot(
                     profile = activeProfile,
                     isActive = true,
+                    highlightWhenActive = false,
                     contrast = contrast,
                     onClick = { isExpanded = true },
                 )
@@ -292,17 +297,22 @@ private fun ProfileSwitchSlot(
     isActive: Boolean,
     contrast: HotseatContrast,
     onClick: () -> Unit,
+    highlightWhenActive: Boolean = true,
 ) {
     Box(
         modifier = Modifier
             .size(ProfileSwitchThumbSize)
             .clip(CircleShape)
-            .let { if (isActive) it.background(ProfileSwitchActiveThumbColor, CircleShape) else it }
+            .let { if (isActive && highlightWhenActive) it.background(ProfileSwitchActiveThumbColor, CircleShape) else it }
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         val iconSize = if (isActive) ProfileSwitchActiveIconSize else ProfileSwitchInactiveIconSize
-        val iconColor = if (isActive) ProfileSwitchActiveIconColor else contrast.icon.copy(alpha = 0.5f)
+        val iconColor = when {
+            isActive && highlightWhenActive -> ProfileSwitchActiveIconColor
+            isActive -> contrast.icon
+            else -> contrast.icon.copy(alpha = 0.5f)
+        }
         if (profile == WorkspaceProfileId.WORK) {
             FilledBuildingIcon(size = iconSize, color = iconColor)
         } else {
