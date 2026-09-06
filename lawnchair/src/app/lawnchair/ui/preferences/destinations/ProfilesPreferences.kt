@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -27,6 +29,7 @@ import app.lawnchair.preferences.getAdapter
 import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.profile.WorkspaceProfileId
 import app.lawnchair.profile.WorkspaceProfileManager
+import app.lawnchair.profile.ZenModeSyncManager
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
 import app.lawnchair.ui.preferences.LocalNavController
 import app.lawnchair.ui.preferences.components.AdvancedColorPicker
@@ -49,6 +52,9 @@ fun ProfilesPreferences(
     val prefs2 = preferenceManager2()
     val activeProfile by prefs2.activeWorkspaceProfile.getAdapter()
     val manager = WorkspaceProfileManager.getInstance(context)
+    val zenManager = ZenModeSyncManager.getInstance(context)
+    val zenModeSyncAdapter = prefs2.isZenModeSyncEnabled.getAdapter()
+    var zenSetupPromptProfile by remember { mutableStateOf<WorkspaceProfileId?>(null) }
 
     val labelColorEnabledPersonalAdapter = prefs2.downshiftProfileIconLabelColorEnabledPersonal.getAdapter()
     val labelColorArgbPersonalAdapter = prefs2.downshiftProfileIconLabelColorArgbPersonal.getAdapter()
@@ -83,6 +89,58 @@ fun ProfilesPreferences(
                         if (!success) {
                             Toast.makeText(context, R.string.profile_switch_failed, Toast.LENGTH_SHORT).show()
                         }
+                    }
+                },
+            )
+        }
+
+        PreferenceGroup(
+            heading = stringResource(id = R.string.zen_mode_sync_heading),
+        ) {
+            SwitchPreference(
+                checked = zenModeSyncAdapter.state.value,
+                onCheckedChange = { enable ->
+                    when {
+                        !enable -> zenModeSyncAdapter.onChange(false)
+                        !zenManager.isPolicyAccessGranted() -> context.startActivity(zenManager.policyAccessSettingsIntent())
+                        else -> {
+                            zenModeSyncAdapter.onChange(true)
+                            scope.launch {
+                                if (zenManager.ensureRulesRegistered()) {
+                                    zenSetupPromptProfile = activeProfile
+                                }
+                            }
+                        }
+                    }
+                },
+                label = stringResource(id = R.string.zen_mode_sync_label),
+                description = stringResource(id = R.string.zen_mode_sync_description),
+            )
+        }
+
+        val promptProfile = zenSetupPromptProfile
+        if (promptProfile != null) {
+            val ruleNameRes = if (promptProfile == WorkspaceProfileId.WORK) {
+                R.string.zen_mode_sync_rule_name_work
+            } else {
+                R.string.zen_mode_sync_rule_name_personal
+            }
+            val ruleName = stringResource(id = ruleNameRes)
+            AlertDialog(
+                onDismissRequest = { zenSetupPromptProfile = null },
+                title = { Text(text = stringResource(id = R.string.zen_mode_sync_setup_dialog_title, ruleName)) },
+                text = { Text(text = stringResource(id = R.string.zen_mode_sync_setup_dialog_body)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        zenSetupPromptProfile = null
+                        zenManager.ruleSettingsIntent(promptProfile)?.let { context.startActivity(it) }
+                    }) {
+                        Text(text = stringResource(id = R.string.zen_mode_sync_setup_now))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { zenSetupPromptProfile = null }) {
+                        Text(text = stringResource(id = R.string.zen_mode_sync_skip_for_now))
                     }
                 },
             )

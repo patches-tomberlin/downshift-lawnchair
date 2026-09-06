@@ -93,7 +93,7 @@ object ColorTokens {
 
     @JvmField val AllAppsHeaderProtectionColor = DayNightColorToken(SurfaceContainerHighest, SurfaceContainerLow)
 
-    @JvmField val AllAppsScrimColor = StaticColorToken(0x404040).setAlpha(.40f)
+    @JvmField val AllAppsScrimColor = StaticColorToken(0x404040).setAlpha(.60f)
 
     @JvmField val AllAppsTabBackground = DayNightColorToken(Neutral1_100, Neutral1_800.setLStar(22.0))
 

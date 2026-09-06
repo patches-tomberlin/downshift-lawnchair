@@ -151,6 +151,27 @@ class PreferenceManager2 @Inject constructor(
         onSet = { requestDownshiftWidgetUpdate() },
     )
 
+    /** The "Enable Zen Mode Sync" Settings toggle -- see [app.lawnchair.profile.ZenModeSyncManager]. */
+    val isZenModeSyncEnabled = preference(
+        key = booleanPreferencesKey(name = "zen_mode_sync_enabled"),
+        defaultValue = false,
+    )
+
+    /**
+     * System-assigned [android.app.AutomaticZenRule] IDs for the Personal/Work Do Not Disturb
+     * rules, persisted so [app.lawnchair.profile.ZenModeSyncManager] reuses the existing rule
+     * instead of creating a duplicate on every call. Empty string means "not yet created".
+     */
+    val zenRuleIdPersonal = preference(
+        key = stringPreferencesKey("zen_rule_id_personal"),
+        defaultValue = "",
+    )
+
+    val zenRuleIdWork = preference(
+        key = stringPreferencesKey("zen_rule_id_work"),
+        defaultValue = "",
+    )
+
     // Settings that change how the DownShift header widget looks or behaves. Each pushes a
     // live redraw via requestDownshiftWidgetUpdate() rather than a full launcher restart --
     // these are widget-only concerns, unrelated to anything reloadHelper handles.

@@ -31,10 +31,8 @@ import kotlinx.coroutines.withContext
  * it without a full process restart, so a fresh, non-DI [ModelDbController] is used for the
  * restore step and the process is killed and relaunched right after.
  *
- * Zen Mode Sync (per-profile DND rule switching, designed separately) is a deliberate later
- * addition -- this class's shape leaves room for it (a
- * [com.android.launcher3.util.SimpleBroadcastReceiver] owned here, the way
- * [com.android.launcher3.pm.UserCache] owns its own).
+ * Zen Mode Sync (per-profile DND rule switching, opt-in) is handled by [ZenModeSyncManager],
+ * notified from [switchTo] below.
  */
 @LauncherAppSingleton
 class WorkspaceProfileManager @Inject constructor(
@@ -82,6 +80,7 @@ class WorkspaceProfileManager @Inject constructor(
         restoreWallpaper(target)
 
         PreferenceManager2.getInstance(context).activeWorkspaceProfile.set(target)
+        ZenModeSyncManager.getInstance(context).setActiveProfileRule(target)
 
         val fadeOptions = ActivityOptions.makeCustomAnimation(
             context,

@@ -208,6 +208,15 @@
     <string name="profile_icon_label_color_custom_toggle">Custom color</string>
     <string name="profile_switch_confirm_title">Switch to %1$s?</string>
     <string name="profile_switch_confirm_body">Your current layout will be saved, and the launcher will restart with the other profile\'s layout.</string>
+    <string name="zen_mode_sync_heading">Zen Mode Sync</string>
+    <string name="zen_mode_sync_label">Enable Zen Mode Sync</string>
+    <string name="zen_mode_sync_description">Link Personal and Work to their own Do Not Disturb rule. Choose which apps each one silences in Android\'s own Do Not Disturb settings -- switching profiles here turns the matching rule on automatically.</string>
+    <string name="zen_mode_sync_rule_name_personal">DownShift Personal</string>
+    <string name="zen_mode_sync_rule_name_work">DownShift Work</string>
+    <string name="zen_mode_sync_setup_dialog_title">Set up %1$s?</string>
+    <string name="zen_mode_sync_setup_dialog_body">Choose which apps and people can interrupt you while this rule is active in Android\'s own Do Not Disturb settings. You can always do this later from the same settings screen.</string>
+    <string name="zen_mode_sync_setup_now">Set up now</string>
+    <string name="zen_mode_sync_skip_for_now">Skip for now, only create the profile</string>
     <string name="silencer_coming_soon">Silencer is coming soon</string>
     <string name="hotseat_mode_downshift_controls">Profiles &amp; Silencer</string>
     <string name="silencer_start_dialog_title">Silence notifications</string>

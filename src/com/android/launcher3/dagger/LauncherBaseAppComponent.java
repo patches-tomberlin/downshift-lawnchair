@@ -73,6 +73,7 @@ import app.lawnchair.preferences.PreferenceManager;
 import app.lawnchair.predictions.LawnchairPredictionManager;
 import app.lawnchair.preferences2.PreferenceManager2;
 import app.lawnchair.profile.WorkspaceProfileManager;
+import app.lawnchair.profile.ZenModeSyncManager;
 import app.lawnchair.silencer.SilencerController;
 import app.lawnchair.smartspace.provider.SmartspaceProvider;
 import app.lawnchair.theme.ThemeProvider;
@@ -143,6 +144,7 @@ public interface LauncherBaseAppComponent {
     PreferenceManager2 getPreferenceManager2();
     PreferenceManager getPreferenceManager();
     WorkspaceProfileManager getWorkspaceProfileManager();
+    ZenModeSyncManager getZenModeSyncManager();
     SilencerController getSilencerController();
     FontCache getFontCache();
     FontManager getFontManager();

@@ -83,6 +83,13 @@
 
                 <data android:scheme="lawnchair" android:host="settings" android:pathPrefix="/" />
             </intent-filter>
+            <!-- Lets this double as the "configurationActivity" for the Zen Mode Sync rules
+                 (app.lawnchair.profile.ZenModeSyncManager): Android's own Do Not Disturb
+                 settings screen launches this action to open a third-party rule's config UI. -->
+            <intent-filter>
+                <action android:name="android.app.action.AUTOMATIC_ZEN_RULE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <activity
