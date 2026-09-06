@@ -32,6 +32,9 @@ import app.lawnchair.ui.preferences.destinations.CustomIconShapePreference
 import app.lawnchair.ui.preferences.destinations.DebugMenuPreferences
 import app.lawnchair.ui.preferences.destinations.DismissedPredictionAppsPreferences
 import app.lawnchair.ui.preferences.destinations.DockPreferences
+import app.lawnchair.ui.preferences.destinations.DownshiftWidgetAppPicker
+import app.lawnchair.ui.preferences.destinations.DownshiftWidgetPreferences
+import app.lawnchair.ui.preferences.destinations.DownshiftWidgetTapTarget
 import app.lawnchair.ui.preferences.destinations.DummyPreference
 import app.lawnchair.ui.preferences.destinations.ExperimentalFeaturesPreferences
 import app.lawnchair.ui.preferences.destinations.FeatureFlagsPreference
@@ -155,6 +158,13 @@ fun PreferenceNavigation(
             deepLinks = getDeepLink(Smartspace),
         ) { SmartspacePreferences(fromWidget = false) }
         composable<SmartspaceWidget> { SmartspacePreferences(fromWidget = true) }
+
+        composable<DownshiftWidget>(
+            deepLinks = getDeepLink(DownshiftWidget),
+        ) { DownshiftWidgetPreferences() }
+        composable<DownshiftWidgetPickClockApp> { DownshiftWidgetAppPicker(target = DownshiftWidgetTapTarget.CLOCK) }
+        composable<DownshiftWidgetPickCalendarApp> { DownshiftWidgetAppPicker(target = DownshiftWidgetTapTarget.CALENDAR) }
+        composable<DownshiftWidgetPickWeatherApp> { DownshiftWidgetAppPicker(target = DownshiftWidgetTapTarget.WEATHER) }
 
         composable<AppDrawer>(
             deepLinks = getDeepLink(AppDrawer),

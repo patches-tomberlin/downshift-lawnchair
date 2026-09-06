@@ -103,6 +103,11 @@ data object Smartspace : PreferenceRootRoute, PreferenceDeepLink {
 }
 
 @Serializable
+data object DownshiftWidget : PreferenceRootRoute, PreferenceDeepLink {
+    override val deepLink = "$URI/downshift-widget"
+}
+
+@Serializable
 data object About : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/about"
 }
@@ -187,6 +192,16 @@ data class SearchProviderPreference(val id: SearchProviderId) :
 // Smartspace section routes
 @Serializable
 data object SmartspaceWidget : PreferenceRoute
+
+// DownShift widget section routes
+@Serializable
+data object DownshiftWidgetPickClockApp : PreferenceRoute
+
+@Serializable
+data object DownshiftWidgetPickCalendarApp : PreferenceRoute
+
+@Serializable
+data object DownshiftWidgetPickWeatherApp : PreferenceRoute
 
 // Gestures section routes
 @Serializable

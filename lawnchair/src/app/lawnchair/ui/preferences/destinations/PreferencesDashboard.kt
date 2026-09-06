@@ -76,6 +76,7 @@ import app.lawnchair.ui.preferences.navigation.AppDrawer
 import app.lawnchair.ui.preferences.navigation.BackupAndRestore
 import app.lawnchair.ui.preferences.navigation.DebugMenu
 import app.lawnchair.ui.preferences.navigation.Dock
+import app.lawnchair.ui.preferences.navigation.DownshiftWidget
 import app.lawnchair.ui.preferences.navigation.ExperimentalFeatures
 import app.lawnchair.ui.preferences.navigation.Folders
 import app.lawnchair.ui.preferences.navigation.General
@@ -146,6 +147,14 @@ fun PreferencesDashboard(
                 iconResource = R.drawable.ic_home_screen,
                 onNavigate = { onNavigate(HomeScreen) },
                 isSelected = currentRoute is HomeScreen,
+            )
+
+            PreferenceCategory(
+                label = stringResource(id = R.string.downshift_widget_label),
+                description = stringResource(R.string.downshift_widget_description),
+                iconResource = R.drawable.ic_widget,
+                onNavigate = { onNavigate(DownshiftWidget) },
+                isSelected = currentRoute is DownshiftWidget,
             )
 
             val isSmartspaceEnabled = prefs2.enableSmartspace.firstCached()

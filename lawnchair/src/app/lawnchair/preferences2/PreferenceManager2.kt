@@ -55,6 +55,10 @@ import app.lawnchair.ui.preferences.components.HiddenAppsInSearch
 import app.lawnchair.ui.preferences.data.liveinfo.LiveInformationManager
 import app.lawnchair.util.kotlinxJson
 import app.lawnchair.views.overlay.FullScreenOverlayMode
+import app.lawnchair.widget.DownshiftHeaderWidget
+import app.lawnchair.widget.DownshiftWeatherProvider
+import app.lawnchair.widget.DownshiftWidgetDateFormat
+import app.lawnchair.widget.DownshiftWidgetFontWeight
 import com.android.launcher3.BuildConfig
 import com.android.launcher3.InvariantDeviceProfile
 import com.android.launcher3.InvariantDeviceProfile.INDEX_DEFAULT
@@ -141,6 +145,71 @@ class PreferenceManager2 @Inject constructor(
         parse = { WorkspaceProfileId.fromString(it) },
         save = { it.name },
     )
+
+    // Settings that change how the DownShift header widget looks or behaves. Each pushes a
+    // live redraw via requestDownshiftWidgetUpdate() rather than a full launcher restart --
+    // these are widget-only concerns, unrelated to anything reloadHelper handles.
+    // Stores the full ARGB int from the custom color picker (alpha included) -- defaults to
+    // pure opaque white.
+    val downshiftWidgetFontColorArgb = preference(
+        key = intPreferencesKey("downshift_widget_font_color_argb"),
+        defaultValue = 0xFFFFFFFF.toInt(),
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetFontWeight = preference(
+        key = stringPreferencesKey("downshift_widget_font_weight"),
+        defaultValue = DownshiftWidgetFontWeight.LIGHT,
+        parse = { DownshiftWidgetFontWeight.fromString(it) },
+        save = { it.name },
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetDateFormat = preference(
+        key = stringPreferencesKey("downshift_widget_date_format"),
+        defaultValue = DownshiftWidgetDateFormat.DAY_FIRST,
+        parse = { DownshiftWidgetDateFormat.fromString(it) },
+        save = { it.name },
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetShowWeather = preference(
+        key = booleanPreferencesKey("downshift_widget_show_weather"),
+        defaultValue = true,
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetWeatherProvider = preference(
+        key = stringPreferencesKey("downshift_widget_weather_provider"),
+        defaultValue = DownshiftWeatherProvider.OPEN_METEO,
+        parse = { DownshiftWeatherProvider.fromString(it) },
+        save = { it.name },
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    // Empty string means "no override" -- the widget falls back to its normal
+    // resolution/fallback behavior for that target.
+    val downshiftWidgetClockPackage = preference(
+        key = stringPreferencesKey("downshift_widget_clock_package"),
+        defaultValue = "",
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetCalendarPackage = preference(
+        key = stringPreferencesKey("downshift_widget_calendar_package"),
+        defaultValue = "",
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    val downshiftWidgetWeatherPackage = preference(
+        key = stringPreferencesKey("downshift_widget_weather_package"),
+        defaultValue = "",
+        onSet = { requestDownshiftWidgetUpdate() },
+    )
+
+    private fun requestDownshiftWidgetUpdate() {
+        DownshiftHeaderWidget.requestUpdate(context)
+    }
 
     val iconShape = preference(
         key = stringPreferencesKey(name = "icon_shape"),
