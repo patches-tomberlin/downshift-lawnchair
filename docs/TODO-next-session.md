@@ -1,51 +1,66 @@
-# TODO — next session
+# Next session TODO
 
-Overwritten (not appended) every time work pauses. Check this first, every session, before doing anything else.
+Last commit: `aeae870a2a` (pushed to origin/16-dev), 2026-09-06.
 
-## Current status (2026-09-06, session 2)
+## What's done and committed
 
-Forked Lawnchair (AOSP Launcher3-based, Apache 2.0) as the new foundation, replacing the old custom-Compose `downshift-launcher` app (paused, not deleted — see `pre-lawnchair-fork` tag on that repo). Full background in memory: `project_downshift_lawnchair.md`.
+- Announcement banner removed from settings; Profiles tile moved above DownShift Clock Widget.
+- Widget color picker restructured into a "Profile Colors" section (Personal/Work chip
+  selector, per-profile ARGB color) with proper "Appearance"/"Tap actions" section headings.
+- Per-profile home-screen icon LABEL color added to Profiles settings (separate, additive
+  toggle on top of the existing global workspaceTextColor Auto/Light/Dark setting) --
+  `LawnchairUtils.overrideWorkspaceIconLabelColorForProfile()`, wired into `BubbleTextView.java`.
+- Silencer's static duration presets (15m/30m/1h) replaced with an M3 TimePicker reinterpreted
+  as an hours:minutes DURATION from now (not a clock time), plus "until I turn it off".
+- Fixed `config_default_hotseat_mode` so a fresh install shows the DownShift command center
+  instead of the Google search bar.
+- Personal/Work profile pill replaced with a native M3 `Switch` (person/work thumb icons, gray
+  palette matching Search/Silencer buttons, custom `scaleToHeight()` layout modifier so the
+  scaled-up switch doesn't crowd its neighbors -- plain `Modifier.scale()` doesn't affect layout
+  size, which was the bug).
+- Widget-not-showing-on-fresh-install bug: root-caused and partially fixed. Confirmed via
+  logcat/dumpsys on a clean second emulator (`small_phone_test`):
+  1. `bindAppWidgetIdIfAllowed()` doesn't auto-allow same-package providers (no `BIND_APPWIDGET`
+     permission) -- fixed via the `ACTION_APPWIDGET_BIND` intent + `BlankActivity` fallback
+     (same mechanism `SmartspaceWidgetReader` already uses). This intent flow shows a REAL
+     system confirmation dialog on this Android build ("Create widget and allow access?"),
+     contrary to the original doc-comment assumption that it's silent for same-package callers.
+  2. `LocalContext.current` in the widget's ComposeView is a `ContextThemeWrapper`, not a bare
+     `Activity` -- fixed with a recursive `findActivity()` unwrap.
+  3. `DownshiftHeaderHostLayout`'s reattach handler only called `requestLayout()`, never
+     re-establishing Compose content after `DisposeOnDetachedFromWindow` tore it down (which
+     happens whenever our own bind flow launches `BlankActivity`) -- fixed, now calls
+     `setContent()` again on every reattach.
+  4. The final `AndroidView(...)` in `DownshiftHeaderWidgetUi.kt` had no width modifier at all
+     -- fixed, added `.fillMaxWidth()`.
 
-**Everything below is committed as of this session's end.** Prior session's work (profile switcher, hotseat controls, wallpaper picker, Silencer, the DownShift header widget as default Smartspace provider) is already committed — see the previous version of this doc in git history for that detail if needed. This session was entirely about the DownShift header widget: interactivity, resizing, and a full settings screen.
+## Still open
 
-**Stage 1 — DONE.** Builds clean from the command line, installs on the phone.
-```bash
-cd /Volumes/External2TB/ClaudeCode/lawnchair && \
-  JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ANDROID_HOME="$HOME/Library/Android/sdk" \
-  ./gradlew assembleLawnWithQuickstepGithubDebug
-```
-APK lands at `build/outputs/apk/lawnWithQuickstepGithub/debug/`. If a fresh install crashes on launch with `NoSuchFieldError` mentioning `$stable`, that's a stale build-cache issue — redo with `--no-build-cache --rerun-tasks`.
+- **Widget rendering**: even after all four fixes above, confirmed via `dumpsys appwidget` that
+  the widget successfully binds (real `RemoteViews` pushed, correct final bounds `688x118`
+  matching its parent slot) -- but nothing actually draws on screen. Zoomed into the exact
+  screen region: no faint/white-on-white text either, just clean wallpaper. This is a NEW,
+  narrower problem than the one we started the last session with (binding/lifecycle is now
+  provably correct) -- something about how `HeadlessAppWidgetHostView`'s pushed RemoteViews
+  actually get composited is the remaining piece. Next step: check whether
+  `AppWidgetHostView.updateAppWidget()`/`onCreateView()` -- our `HeadlessAppWidgetHostView` in
+  `HeadlessWidgetsManager.kt` -- is actually inflating the RemoteViews content, or whether a
+  headless `AppWidgetHost` needs something else (e.g. `setAppWidget()` called explicitly, or
+  the RemoteViews apply needs a real attached-to-window host) that a normal workspace-placed
+  widget gets for free.
+- Package rename (applicationId) to something like `com.downshiftlauncher.app`, display name
+  "DownShift Launcher", icon label "DownShift" -- user explicitly wants the full applicationId
+  change (new app, no data migration). Not started; deliberately deferred behind the widget bug.
+- Renaming old/legacy projects to include "Legacy" -- not yet scoped (which directories, what
+  convention). Deferred alongside the package rename.
+- Eventually: extract the DownShift widget + settings screen into a standalone Play Store app
+  (settings screen must reuse Lawnchair's real preference-UI components, not a re-skin).
 
-### DownShift header widget — interactivity, resizing, and settings (this session)
+## Notes for whoever resumes
 
-**Tap actions — DONE.** Time → system alarm/clock app, date → default calendar app, weather → the OS weather-app role (falls back to Google's weather activity, then a web search) — all in `DownshiftHeaderWidget.kt`'s `setClickPendingIntents()`/`resolveAlarmIntent()`/`resolveWeatherIntent()`. Two real bugs found and fixed here, both worth remembering:
-- **`Intent.createChooser()` is the wrong tool for "let the user pick an app for a non-share action."** On this device (and generally, on any Android build with the modern IntentResolver/sharesheet module), `createChooser()` routes through the platform *sharesheet* — built for `ACTION_SEND`-style sharing — which reports **zero** targets for unrelated actions like `SHOW_ALARMS` regardless of what actually resolves (confirmed via logcat: `ChooserListAdapter: getDisplayResolveInfoCount() == 0` even though `queryIntentActivities()` found the target app fine). Fix: use a bare implicit `Intent` handed straight to `PendingIntent`/`startActivity` — Android's own native disambiguation kicks in for free (auto-launches on a single match, shows the classic "Open with" picker on multiple matches), no `createChooser()` needed.
-- **A specific target activity can require its own permission the caller doesn't hold**, independent of resolution/visibility. Samsung's `AlarmCTSHandleActivity` (what `ACTION_SHOW_ALARMS` resolves to on this device) requires `com.android.alarm.permission.SET_ALARM` — a normal-protection-level permission, auto-granted at install with zero runtime prompt once declared in the manifest. Confirmed via logcat (`Permission Denial: ... requires com.android.alarm.permission.SET_ALARM`), fixed by adding the `<uses-permission>`.
-
-**Native resizing + text scaling — DONE.** `downshift_header_info.xml` has `resizeMode="horizontal|vertical"`, `targetCellWidth/Height="2"` (default placement footprint), small `minWidth`/`minHeight` floor. XML's `autoSizeTextType` does **not** reliably react to a widget being live-resized on the home screen — text size is instead recomputed in code: `onAppWidgetOptionsChanged()` re-triggers `updateWidget()`, which reads `AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH` and calls `RemoteViews.setTextViewTextSize()` directly, scaled proportionally from a `BASE_WIDTH_DP` reference. Base time size was tuned down from 48sp to 40sp after a 2-digit hour ("11:45") clipped the "M" off "AM"/"PM" at the widget's 2×2 default size. Root content Box is `layout_height="match_parent"` + `gravity="center"` so the whole text block stays centered in the bounding box as the widget is resized/stretched, rather than hugging the top-left corner.
-
-**Live redraw when settings change — DONE.** `DownshiftHeaderWidget.requestUpdate(context)` (companion function) is a **direct `AppWidgetManager` call**, not a broadcast — `ACTION_APPWIDGET_UPDATE` is a protected system broadcast; confirmed via adb that even `am broadcast` from shell is rejected ("Permission Denial: not allowed to send broadcast ... from unknown caller"). A normal app can never send it, from adb or in-process. Every widget-appearance preference's `onSet` in `PreferenceManager2.kt` calls this to push an immediate redraw.
-
-**Full settings screen — DONE.** Settings → **DownShift Clock Widget** (top-level dashboard tile, sits directly above "At a Glance" — `PreferencesDashboard.kt`). New files: `app/lawnchair/ui/preferences/destinations/DownshiftWidgetPreferences.kt` (main screen + the 3 tap-target app-picker sub-screens), `app/lawnchair/ui/preferences/components/ColorPickerAdvanced.kt` (the color picker), `app/lawnchair/widget/DownshiftWidgetSettings.kt` (the enums), `app/lawnchair/widget/weather/` (the weather-provider package, see below). New routes in `PreferenceRoutes.kt`/`PreferenceNavigation.kt`: `DownshiftWidget`, `DownshiftWidgetPickClockApp`, `DownshiftWidgetPickCalendarApp`, `DownshiftWidgetPickWeatherApp`.
-
-Contains:
-- **Text color** — a hand-rolled advanced color picker (Saturation/Value box, Hue slider, Alpha slider, hex + opacity text fields), no third-party dependency (deliberately — see the standing feedback memory `feedback_flag_risky_technical_decisions.md` about not silently choosing a library when a dependency's exact coordinates/version can't be verified without live docs access). HSV↔RGB conversion leans on the platform's own `android.graphics.Color.RGBToHSV`/`Color.hsv()`, not hand-rolled math. Stored as a single ARGB `Int` preference (`downshiftWidgetFontColorArgb`, replacing an earlier White/Dark two-tone enum), applied uniformly to all four text elements. Continuous drag only updates the picker's own local preview; the actual DataStore write + widget push (which also re-triggers a weather network fetch) fires only once per gesture (drag-end, or a hex/opacity submit) — matches Compose `Slider`'s own `onValueChangeFinished` convention, deliberately, to avoid hammering the widget host and the weather API on every drag pixel.
-- **Font weight** (Thin/Light/Regular) — picked by selecting which of 3 pre-built layout XML variants (`widget_downshift_header{,_thin,_regular}.xml`, identical except `fontFamily`) gets inflated. **Not** `SpannableString`+`TypefaceSpan` — the time/date elements are `TextClock`, which overwrites its own text (including any span) every tick, so a span-based approach would get wiped within about a second.
-- **Date format** (day-first / date-first) — via `RemoteViews.setCharSequence(id, "setFormat12Hour"/"setFormat24Hour", pattern)`, both set to the same pattern (a date format doesn't depend on 12/24-hour convention, but `TextClock` ignores `format12Hour` entirely and falls back to a default pattern on a 24-hour-mode device unless `format24Hour` is also set — fixed as a drive-by bug alongside the new feature).
-- **Show weather** toggle, and **Weather data source** dropdown (see below).
-- **Tap-action app overrides** for Clock/Calendar/Weather — each opens its own app-picker sub-screen (reuses `appsState()`/`AppItem` from the gesture-handler app-picker pattern). Clock/Calendar are filtered to apps that actually resolve the relevant intent; **Weather is not** — confirmed on-device that OEM weather apps (Samsung's, and the user's actual app "MyRadar") often don't declare any of the standard weather-role signals, so filtering would hide the very app being picked. Weather instead uses a name heuristic (label contains "weather", "forecast", or "radar") with a "Don't see your weather app listed? Choose it here." button that reveals every installed app.
-
-**Pluggable weather providers — DONE (one working, two stubs).** New `app.lawnchair.widget.weather` package: `WeatherRepository` interface (`suspend fun fetchWeather(lat, lon): WeatherData`), `WeatherData(temperatureFahrenheit, wmoWeatherCode)` — every provider is responsible for mapping its own condition-code scheme to WMO codes internally, so the widget's existing WMO-based icon lookup (`getWeatherIconResource()` in `DownshiftHeaderWidget.kt`) needs no changes regardless of provider. `OpenMeteoProvider` is the original logic, moved verbatim (Open-Meteo's own codes already are WMO codes, no mapping needed). `MetNorwayProvider`/`NwsProvider` are stubs — each documents the custom `User-Agent` header both APIs require in their ToS, and what's still needed (MET Norway's `symbol_code` strings, NWS's two-step points→forecast flow) before they can return real data. Selecting a stub provider in Settings doesn't crash — the stub throws a plain caught `IllegalStateException` (deliberately not `TODO()`/`NotImplementedError`, which is an `Error` and would NOT be caught by the existing `catch (e: Exception)` and would crash the widget's coroutine). `WeatherRepositoryFactory.create(provider)` picks the implementation.
-
-**Weather icon size — doubled** (20dp → 40dp) across all three font-weight layout variants, per explicit request.
-
-**Not started yet, explicitly deferred:** real MET Norway and NWS implementations (User-Agent header, condition-code mapping, NWS's two-step fetch flow) — see the stub files' doc comments for exact requirements. A location picker UI (lat/lon is still hardcoded to the same fixed coordinates this widget has always used — not touched this session).
-
-**Planned, not started:** pulling the DownShift header widget + its whole settings screen out into a standalone Play Store app (see memory `project_downshift_widget_standalone_app.md`) — **explicit requirement: the standalone app's settings screen must look exactly like this one**, meaning Lawnchair's actual preference-UI component library (`PreferenceLayout`/`PreferenceGroup`/`ListPreference`/`SwitchPreference`/`ClickablePreference`/`PreferenceLazyColumn`) and the `AdvancedColorPicker` need to be ported, not just the widget provider itself. Those components carry `PreferenceManager2`/DataStore/Dagger wiring that will need reworking for a standalone app's own settings storage.
-
-## Environment reminders
-- `origin` remote → your fork `downshift-lawnchair`; `upstream` → real Lawnchair (for pulling their updates).
-- Phone: `R3GL4021XSY`. Emulator: `emulator-5554`. **Every debug install now targets both** (per standing preference) — `adb -s R3GL4021XSY install -r <apk>` and `adb -s emulator-5554 install -r <apk>`, always `am force-stop app.lawnchair.debug` first on each.
-- When testing anything that writes app preferences/state, prefer `adb shell am force-stop app.lawnchair.debug` before relaunching to test — a reinstall over an already-running foreground launcher process does NOT automatically restart it, and stale in-memory state has caused real confusion (e.g. looked like a bug fix hadn't taken effect when actually the old process was still running).
-- **A widget's already-placed instance does not auto-refresh on a plain app reinstall.** `onUpdate()`/RemoteViews content only refreshes on: initial placement, `updatePeriodMillis` elapsing (disabled here, `=0`), an explicit `AppWidgetManager.updateAppWidget()` call from in-process code (what `requestUpdate()` does, and what every widget-setting change now triggers automatically), or the user manually removing and re-adding the widget. A manifest-level change (permissions, a layout XML's static content) needs a resize-nudge or a remove/re-add to actually show up on an existing placed instance — a plain reinstall alone won't do it.
+- Always test on BOTH the physical phone (`R3GL4021XSY`) and an emulator, per standing
+  practice -- and when testing "fresh install" behavior specifically, prefer booting a genuinely
+  separate/never-used AVD (e.g. `small_phone_test`) over uninstall+reinstall on
+  `minimal_launcher_test`, since that AVD accumulates state across sessions.
+- Bash `&&` chains after a `grep` with zero matches silently abort (exit code 1) -- use `;` or
+  explicit `echo "exit=$?"` when chaining diagnostic logcat/grep commands.
