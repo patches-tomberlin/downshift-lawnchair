@@ -19,6 +19,7 @@ import com.android.launcher3.util.DaggerSingletonObject
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -36,8 +37,17 @@ import kotlinx.coroutines.withContext
  * scrim: [app.lawnchair.hotseat.DownshiftControlsUi] fades it in on the outgoing screen right
  * before calling [switchTo], and [app.lawnchair.LawnchairLauncher] shows it immediately on every
  * cold start (see that class's doc comment for why it's unconditional, not flagged some other
- * way) and fades it back out once the workspace has finished binding -- no snapshot, no disk
- * handoff, nothing crosses the process boundary at all.
+ * way) and fades it back out once the workspace has finished binding.
+ *
+ * Running the wallpaper restore in parallel with the post-restart workspace bind (instead of
+ * synchronously here, before the kill) was tried and reverted: applying the wallpaper via
+ * [android.app.WallpaperManager.setBitmap] while the new process's Activity was still starting up
+ * triggered a second, mid-transition `recreate()` (its wallpaper-color-changed callback feeds
+ * into this app's own dynamic-theme recalculation), which raced the in-flight bind/restore
+ * coroutines and left the profile switcher unresponsive. Restoring the wallpaper here, before the
+ * restart, means it's fully applied and settled by the time the new process's Activity is even
+ * created, so no such race can happen -- worth the roughly 500ms of extra black-scrim hold on
+ * whichever profile has a saved wallpaper snapshot to decode.
  */
 @LauncherAppSingleton
 class WorkspaceProfileManager @Inject constructor(
@@ -69,7 +79,14 @@ class WorkspaceProfileManager @Inject constructor(
         val current = activeProfile
         if (current == target) return@withContext true
 
+        fun mark(step: String) = Log.d(
+            PROFILE_SWITCH_LOG_TAG,
+            "switchTo($current -> $target): $step at ${android.os.SystemClock.uptimeMillis()}",
+        )
+        mark("start")
+
         snapshotCurrent(current)
+        mark("snapshotCurrent done")
 
         val liveDb = liveDbFile()
         liveDb.delete()
@@ -79,16 +96,19 @@ class WorkspaceProfileManager @Inject constructor(
         if (incomingDb.exists()) {
             incomingDb.copyTo(liveDb, overwrite = true)
         }
+        mark("db swap done")
 
         val success = RestoreDbTask.performRestore(context, ModelDbController(context))
+        mark("performRestore done")
         if (!success) return@withContext false
 
-        restoreWallpaper(target)
+        restoreWallpaperForColdStart(target)
+        mark("restoreWallpaper done")
 
         PreferenceManager2.getInstance(context).activeWorkspaceProfile.set(target)
         ZenModeSyncManager.getInstance(context).setActiveProfileRule(target)
+        mark("prefs + zen sync done, restarting")
 
-        Log.d(PROFILE_SWITCH_LOG_TAG, "restarting at ${android.os.SystemClock.uptimeMillis()}")
         restartLauncher(context)
         true
     }
@@ -156,19 +176,66 @@ class WorkspaceProfileManager @Inject constructor(
         return Bitmap.createBitmap(source, x, y, safeWidth, safeHeight)
     }
 
-    private fun restoreWallpaper(id: WorkspaceProfileId) {
+    /**
+     * Decodes and applies [id]'s saved wallpaper snapshot as the system wallpaper -- a no-op if
+     * it never had one saved (see [snapshotCurrent]'s doc comment), beyond a fixed
+     * [NO_WALLPAPER_SNAPSHOT_DELAY_MS] hold. Runs before the restart, not after -- see
+     * [switchTo]'s doc comment for why a parallel, post-restart version of this was tried and
+     * reverted.
+     *
+     * Decoding the saved snapshot at its full native resolution (these are cropped screenshots of
+     * a bundled wallpaper, which can be considerably larger than the screen) measurably slowed
+     * this down -- confirmed via logged timestamps: ~1s for a 433KB/3175x6000 snapshot on a
+     * mid-range phone. Downsampling to roughly the screen's own resolution first (the standard
+     * inSampleSize technique) cut that to ~500ms, since WallpaperManager.setBitmap crops/scales to
+     * the screen internally anyway and doesn't need the full native resolution handed to it.
+     *
+     * The remaining ~500ms is real, unavoidable work for whichever profile actually has a saved
+     * wallpaper -- but only that direction has it: switching to a profile with no saved snapshot
+     * (the no-op path above) was instant, so the two directions felt inconsistent even though
+     * both are equally hidden behind the black scrim (confirmed by the user testing it directly,
+     * back to back, several times). [NO_WALLPAPER_SNAPSHOT_DELAY_MS] closes that gap the cheap
+     * way: holding the fast path back by roughly the same amount, rather than trying to shave any
+     * more off the slow path -- there's real appetite for a "the switcher just always takes about
+     * this long" feel over a faster-but-inconsistent one.
+     */
+    private suspend fun restoreWallpaperForColdStart(id: WorkspaceProfileId): Unit = withContext(Dispatchers.IO) {
         val incomingWallpaper = snapshotWallpaperFile(id)
-        if (!incomingWallpaper.exists()) return
-        val bitmap = BitmapFactory.decodeFile(incomingWallpaper.path)
+        if (!incomingWallpaper.exists()) {
+            delay(NO_WALLPAPER_SNAPSHOT_DELAY_MS)
+            return@withContext
+        }
+        val metrics = context.resources.displayMetrics
+        val bitmap = decodeSampledBitmap(incomingWallpaper.path, metrics.widthPixels, metrics.heightPixels)
         if (bitmap != null) {
             WallpaperManager.getInstance(context).setBitmap(bitmap)
         }
+    }
+
+    private fun decodeSampledBitmap(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var inSampleSize = 1
+        val halfHeight = bounds.outHeight / 2
+        val halfWidth = bounds.outWidth / 2
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+
+        return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { this.inSampleSize = inSampleSize })
     }
 
     companion object {
         private const val SNAPSHOT_DB_NAME = "launcher.db"
         private const val SNAPSHOT_WALLPAPER_NAME = "wallpaper.png"
         private const val PROFILE_SWITCH_LOG_TAG = "ProfileSwitchTransition"
+
+        // Matches the roughly-500ms a real wallpaper-snapshot decode+apply takes on a mid-range
+        // phone (see restoreWallpaperForColdStart's doc comment) -- so switching to a profile with
+        // no saved wallpaper takes about as long as switching to one that has one.
+        private const val NO_WALLPAPER_SNAPSHOT_DELAY_MS = 500L
 
         @JvmField
         val INSTANCE = DaggerSingletonObject(LauncherAppComponent::getWorkspaceProfileManager)

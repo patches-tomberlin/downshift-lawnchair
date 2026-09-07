@@ -273,21 +273,28 @@ class LawnchairLauncher : QuickstepLauncher() {
      * not just a profile switch. Originally this only ran when the restart intent carried a flag
      * set by [app.lawnchair.profile.WorkspaceProfileManager.switchTo], but that flag turned out to
      * be unreliable: killing a HOME app's process makes Android's own ActivityManagerService
-     * auto-relaunch it
-     * immediately, and *that* relaunch is what actually creates this Activity (confirmed via
-     * logging -- the intent it delivers carries only the system's own EXTRA_START_REASON, never
-     * anything we attached to our own restart Intent, which a separately-scheduled PendingIntent
-     * loses the race to). There is no reliable way to pass a flag across a killed process's
-     * restart without it, so this scrim now covers every cold start unconditionally -- which also
-     * means zero cross-process state of any kind: no snapshot, no disk flag, nothing. A profile
-     * switch fades the outgoing screen to the same solid black via [playProfileSwitchFadeOut]
-     * before killing the process (see [app.lawnchair.hotseat.DownshiftControlsUi]), so for that
-     * specific case this hands off seamlessly across the dead-process gap; for a normal cold
-     * start (tapping the app icon after a swipe-kill, etc.) it's a brief, deliberate fade-in
-     * rather than an abrupt pop of content, which reads as intentional either way. Removed by
-     * [finishBindingItems] below, once the workspace has actually finished binding --
-     * [PROFILE_SWITCH_SCRIM_MAX_HOLD_MS] here is only a safety net in case that callback never
-     * fires, so this can never get stuck showing a frozen black screen forever.
+     * auto-relaunch it immediately, and *that* relaunch is what actually creates this Activity
+     * (confirmed via logging -- the intent it delivers carries only the system's own
+     * EXTRA_START_REASON, never anything we attached to our own restart Intent, which a
+     * separately-scheduled PendingIntent loses the race to). There is no reliable way to pass a
+     * flag across a killed process's restart without it, so this scrim now covers every cold
+     * start unconditionally -- which also means zero cross-process state of any kind: no
+     * snapshot, no disk flag, nothing. A profile switch fades the outgoing screen to the same
+     * solid black via [playProfileSwitchFadeOut] before killing the process (see
+     * [app.lawnchair.hotseat.DownshiftControlsUi]), so for that specific case this hands off
+     * seamlessly across the dead-process gap; for a normal cold start (tapping the app icon
+     * after a swipe-kill, etc.) it's a brief, deliberate fade-in rather than an abrupt pop of
+     * content, which reads as intentional either way. Removed by [finishBindingItems] below,
+     * once the workspace has actually finished binding -- [PROFILE_SWITCH_SCRIM_MAX_HOLD_MS]
+     * here is only a safety net in case that callback never fires, so this can never get stuck
+     * showing a frozen black screen forever.
+     *
+     * A version of this that also waited on an in-parallel wallpaper restore (started here,
+     * alongside the bind) was tried and reverted: applying the wallpaper while this Activity was
+     * still starting up could trigger a second, mid-transition `recreate()` (see
+     * [app.lawnchair.profile.WorkspaceProfileManager]'s doc comment) that raced this exact logic
+     * and left the profile switcher unresponsive. The wallpaper restore now happens entirely
+     * before the restart instead, so nothing here needs to wait on it.
      */
     private fun showColdStartScrim() {
         val scrim = ensureProfileSwitchScrim()
@@ -303,6 +310,7 @@ class LawnchairLauncher : QuickstepLauncher() {
      * whatever the OS shows once the process actually dies a moment later.
      */
     suspend fun playProfileSwitchFadeOut(): Unit = suspendCancellableCoroutine { cont ->
+        Log.d(PROFILE_SWITCH_LOG_TAG, "fade-out (pre-kill) starting at ${SystemClock.uptimeMillis()}")
         val scrim = ensureProfileSwitchScrim()
         scrim.alpha = 0
         dragLayer.invalidate()
@@ -314,6 +322,7 @@ class LawnchairLauncher : QuickstepLauncher() {
         }
         fadeOut.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
+                Log.d(PROFILE_SWITCH_LOG_TAG, "fade-out (pre-kill) complete at ${SystemClock.uptimeMillis()}")
                 if (cont.isActive) cont.resume(Unit, null)
             }
         })
