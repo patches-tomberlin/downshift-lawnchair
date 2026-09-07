@@ -49,4 +49,21 @@ class DownshiftControlsLayout(context: Context, attrs: AttributeSet?) : FrameLay
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
         )
     }
+
+    /**
+     * Same fix as [app.lawnchair.qsb.LawnQsbLayout]: [com.android.launcher3.preview.LauncherPreviewRenderer]
+     * (the small live preview on the grid-size settings screen) measures a whole *detached* copy
+     * of the home screen, [Hotseat] included, purely off-screen -- never attached to a real
+     * window. A [ComposeView] can't resolve a windowRecomposer while detached and crashes if
+     * measured normally there (confirmed via a real device crash), so skip delegating to it in
+     * that case; this view's own size still comes from the incoming spec either way, matching
+     * what [Hotseat] already expects since this shim always fills the QSB slot completely.
+     */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        if (!composeView.isAttachedToWindow) {
+            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+            return
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
 }
