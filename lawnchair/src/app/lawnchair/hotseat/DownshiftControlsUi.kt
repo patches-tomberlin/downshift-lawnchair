@@ -235,9 +235,15 @@ private fun ProfileSwitch(contrast: HotseatContrast, modifier: Modifier = Modifi
     val onSelect: (WorkspaceProfileId) -> Unit = { target ->
         isExpanded = false
         if (target != activeProfile) {
+            val launcherActivity = context.launcher
             scope.launch {
+                // Fades the outgoing screen to solid black under our own control, then only
+                // proceeds with the (process-killing) switch once that's fully faded -- see
+                // LawnchairLauncher's playProfileSwitchFadeOut doc comment for the full picture.
+                launcherActivity.playProfileSwitchFadeOut()
                 val success = manager.switchTo(target)
                 if (!success) {
+                    launcherActivity.cancelProfileSwitchFadeOut()
                     Toast.makeText(context, R.string.profile_switch_failed, Toast.LENGTH_SHORT).show()
                 }
             }

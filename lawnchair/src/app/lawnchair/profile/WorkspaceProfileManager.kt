@@ -1,11 +1,11 @@
 package app.lawnchair.profile
 
-import android.app.ActivityOptions
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.DisplayMetrics
+import android.util.Log
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.preferences2.firstCached
 import app.lawnchair.util.restartLauncher
@@ -32,7 +32,12 @@ import kotlinx.coroutines.withContext
  * restore step and the process is killed and relaunched right after.
  *
  * Zen Mode Sync (per-profile DND rule switching, opt-in) is handled by [ZenModeSyncManager],
- * notified from [switchTo] below.
+ * notified from [switchTo] below. The hard process restart's cold-start gap is masked by a black
+ * scrim: [app.lawnchair.hotseat.DownshiftControlsUi] fades it in on the outgoing screen right
+ * before calling [switchTo], and [app.lawnchair.LawnchairLauncher] shows it immediately on every
+ * cold start (see that class's doc comment for why it's unconditional, not flagged some other
+ * way) and fades it back out once the workspace has finished binding -- no snapshot, no disk
+ * handoff, nothing crosses the process boundary at all.
  */
 @LauncherAppSingleton
 class WorkspaceProfileManager @Inject constructor(
@@ -57,7 +62,8 @@ class WorkspaceProfileManager @Inject constructor(
     /**
      * Switches the visible workspace to [target]. A no-op if [target] is already active.
      * Restarts the launcher process on success. Returns `false` (leaving the workspace
-     * untouched) if the underlying db restore fails.
+     * untouched) if the underlying db restore fails -- the caller is expected to fade its own
+     * black scrim back out in that case, since it fades it in before calling this.
      */
     suspend fun switchTo(target: WorkspaceProfileId): Boolean = withContext(Dispatchers.IO) {
         val current = activeProfile
@@ -82,12 +88,8 @@ class WorkspaceProfileManager @Inject constructor(
         PreferenceManager2.getInstance(context).activeWorkspaceProfile.set(target)
         ZenModeSyncManager.getInstance(context).setActiveProfileRule(target)
 
-        val fadeOptions = ActivityOptions.makeCustomAnimation(
-            context,
-            android.R.anim.fade_in,
-            android.R.anim.fade_out,
-        ).toBundle()
-        restartLauncher(context, fadeOptions)
+        Log.d(PROFILE_SWITCH_LOG_TAG, "restarting at ${android.os.SystemClock.uptimeMillis()}")
+        restartLauncher(context)
         true
     }
 
@@ -166,6 +168,7 @@ class WorkspaceProfileManager @Inject constructor(
     companion object {
         private const val SNAPSHOT_DB_NAME = "launcher.db"
         private const val SNAPSHOT_WALLPAPER_NAME = "wallpaper.png"
+        private const val PROFILE_SWITCH_LOG_TAG = "ProfileSwitchTransition"
 
         @JvmField
         val INSTANCE = DaggerSingletonObject(LauncherAppComponent::getWorkspaceProfileManager)

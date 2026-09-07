@@ -16,13 +16,20 @@
 
 package app.lawnchair
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
+import android.animation.ValueAnimator
 import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.RectF
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.os.SystemClock
+import android.util.Log
 import android.util.Pair
 import android.view.Display
 import android.view.View
@@ -75,6 +82,7 @@ import com.android.launcher3.uioverrides.states.BackgroundAppState
 import com.android.launcher3.uioverrides.states.OverviewState
 import com.android.launcher3.util.ActivityOptionsWrapper
 import com.android.launcher3.util.Executors
+import com.android.launcher3.util.IntSet
 import com.android.launcher3.util.RunnableList
 import com.android.launcher3.util.SystemUiController.UI_STATE_BASE_WINDOW
 import com.android.launcher3.util.Themes
@@ -94,6 +102,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 class LawnchairLauncher : QuickstepLauncher() {
     private val defaultOverlay by unsafeLazy { OverlayCallbackImpl(this) }
@@ -160,6 +169,8 @@ class LawnchairLauncher : QuickstepLauncher() {
     override fun onCreate(savedInstanceState: Bundle?) {
         layoutInflater.factory2 = LawnchairLayoutFactory(this)
         super.onCreate(savedInstanceState)
+
+        showColdStartScrim()
 
         prefs.launcherTheme.subscribeChanges(this, ::updateTheme)
         prefs.feedProvider.subscribeChanges(this, defaultOverlay::reconnect)
@@ -250,6 +261,114 @@ class LawnchairLauncher : QuickstepLauncher() {
         reloadIconsIfNeeded()
 
         AppDatabase.INSTANCE.get(this).checkpointSync()
+    }
+
+    // Set only while a cold-start black scrim is being shown over the DragLayer -- from the
+    // moment onCreate renders it (see showColdStartScrim) until finishBindingItems fades it away.
+    // Null the rest of the time.
+    private var profileSwitchScrim: ColorDrawable? = null
+
+    /**
+     * Renders a full-opacity black scrim over the DragLayer immediately, on every cold start --
+     * not just a profile switch. Originally this only ran when the restart intent carried a flag
+     * set by [app.lawnchair.profile.WorkspaceProfileManager.switchTo], but that flag turned out to
+     * be unreliable: killing a HOME app's process makes Android's own ActivityManagerService
+     * auto-relaunch it
+     * immediately, and *that* relaunch is what actually creates this Activity (confirmed via
+     * logging -- the intent it delivers carries only the system's own EXTRA_START_REASON, never
+     * anything we attached to our own restart Intent, which a separately-scheduled PendingIntent
+     * loses the race to). There is no reliable way to pass a flag across a killed process's
+     * restart without it, so this scrim now covers every cold start unconditionally -- which also
+     * means zero cross-process state of any kind: no snapshot, no disk flag, nothing. A profile
+     * switch fades the outgoing screen to the same solid black via [playProfileSwitchFadeOut]
+     * before killing the process (see [app.lawnchair.hotseat.DownshiftControlsUi]), so for that
+     * specific case this hands off seamlessly across the dead-process gap; for a normal cold
+     * start (tapping the app icon after a swipe-kill, etc.) it's a brief, deliberate fade-in
+     * rather than an abrupt pop of content, which reads as intentional either way. Removed by
+     * [finishBindingItems] below, once the workspace has actually finished binding --
+     * [PROFILE_SWITCH_SCRIM_MAX_HOLD_MS] here is only a safety net in case that callback never
+     * fires, so this can never get stuck showing a frozen black screen forever.
+     */
+    private fun showColdStartScrim() {
+        val scrim = ensureProfileSwitchScrim()
+        scrim.alpha = 255
+        dragLayer.invalidate()
+        Log.d(PROFILE_SWITCH_LOG_TAG, "scrim shown at ${SystemClock.uptimeMillis()}")
+        dragLayer.postDelayed(::fadeInAfterProfileSwitch, PROFILE_SWITCH_SCRIM_MAX_HOLD_MS)
+    }
+
+    /**
+     * Fades a black scrim in over the DragLayer -- called from Compose right before a profile
+     * switch, so the outgoing screen goes to solid black under our own control instead of
+     * whatever the OS shows once the process actually dies a moment later.
+     */
+    suspend fun playProfileSwitchFadeOut(): Unit = suspendCancellableCoroutine { cont ->
+        val scrim = ensureProfileSwitchScrim()
+        scrim.alpha = 0
+        dragLayer.invalidate()
+        val fadeOut = ValueAnimator.ofInt(0, 255)
+        fadeOut.duration = PROFILE_SWITCH_SCRIM_FADE_OUT_MS
+        fadeOut.addUpdateListener { animator ->
+            scrim.alpha = animator.animatedValue as Int
+            dragLayer.invalidate()
+        }
+        fadeOut.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (cont.isActive) cont.resume(Unit, null)
+            }
+        })
+        fadeOut.start()
+    }
+
+    /** Undoes [playProfileSwitchFadeOut] -- used only when the switch itself fails afterward. */
+    fun cancelProfileSwitchFadeOut() {
+        val drawable = profileSwitchScrim ?: return
+        profileSwitchScrim = null
+        dragLayer.overlay.remove(drawable)
+        dragLayer.invalidate()
+    }
+
+    private fun ensureProfileSwitchScrim(): ColorDrawable {
+        profileSwitchScrim?.let { return it }
+        // Display metrics rather than dragLayer's own (possibly not yet laid out) width/height --
+        // this can be set up as the very first thing in onCreate, before any layout pass has run.
+        val metrics = resources.displayMetrics
+        val drawable = ColorDrawable(Color.BLACK).apply {
+            setBounds(0, 0, metrics.widthPixels, metrics.heightPixels)
+            alpha = 0
+        }
+        dragLayer.overlay.add(drawable)
+        profileSwitchScrim = drawable
+        return drawable
+    }
+
+    override fun finishBindingItems(pagesBoundFirst: IntSet) {
+        super.finishBindingItems(pagesBoundFirst)
+        if (profileSwitchScrim == null) return
+        Log.d(PROFILE_SWITCH_LOG_TAG, "finishBindingItems fired at ${SystemClock.uptimeMillis()}, fading in")
+        // A couple of frame hops so the just-bound views have actually been laid out and drawn
+        // at least once underneath the scrim before it starts fading away.
+        dragLayer.post { dragLayer.post(::fadeInAfterProfileSwitch) }
+    }
+
+    private fun fadeInAfterProfileSwitch() {
+        val drawable = profileSwitchScrim ?: return
+        profileSwitchScrim = null
+        Log.d(PROFILE_SWITCH_LOG_TAG, "fade-in starting at ${SystemClock.uptimeMillis()}")
+
+        val fadeIn = ValueAnimator.ofInt(drawable.alpha, 0)
+        fadeIn.duration = PROFILE_SWITCH_SCRIM_FADE_IN_MS
+        fadeIn.addUpdateListener { animator ->
+            drawable.alpha = animator.animatedValue as Int
+            dragLayer.invalidate()
+        }
+        fadeIn.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                dragLayer.overlay.remove(drawable)
+                Log.d(PROFILE_SWITCH_LOG_TAG, "fade-in complete at ${SystemClock.uptimeMillis()}")
+            }
+        })
+        fadeIn.start()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -501,6 +620,7 @@ class LawnchairLauncher : QuickstepLauncher() {
         super.onDestroy()
         // Only actually closes if required, safe to call if not enabled
         SmartspacerClient.close()
+        profileSwitchScrim = null
     }
 
     override fun getDefaultOverlay(): LauncherOverlayManager = defaultOverlay
@@ -555,6 +675,15 @@ class LawnchairLauncher : QuickstepLauncher() {
     companion object {
         private const val FLAG_RECREATE = 1 shl 0
         private const val FLAG_RESTART = 1 shl 1
+
+        private const val PROFILE_SWITCH_SCRIM_FADE_OUT_MS = 200L
+        private const val PROFILE_SWITCH_SCRIM_FADE_IN_MS = 250L
+
+        // Safety-net cap on how long the profile-switch black scrim (see
+        // showProfileSwitchScrimIfPending) can stay on screen if finishBindingItems never fires
+        // -- not the normal removal path, which is driven by that callback instead.
+        private const val PROFILE_SWITCH_SCRIM_MAX_HOLD_MS = 4000L
+        private const val PROFILE_SWITCH_LOG_TAG = "ProfileSwitchTransition"
 
         var sRestartFlags = 0
 

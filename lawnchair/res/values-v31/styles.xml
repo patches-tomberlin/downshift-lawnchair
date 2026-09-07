@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+    Colors the very first frame of every cold start (including the moment a profile switch's
+    process restart begins) via the platform Splash Screen API, which runs before any of our own
+    code executes, so it can only ever be a single static color, not the real wallpaper. Without
+    this, the system falls back to a harsh black/white flash for that gap since our theme's own
+    windowBackground is transparent (by design, for windowShowWallpaper). A neutral dark tone reads
+    far less jarring against most wallpapers than that default.
+    -->
+    <style name="AppTheme">
+        <item name="android:windowSplashScreenBackground">#1C1C1E</item>
+    </style>
+</resources>
