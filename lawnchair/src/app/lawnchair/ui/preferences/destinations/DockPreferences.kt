@@ -85,6 +85,11 @@ fun DockPreferences(modifier: Modifier = Modifier) {
                     adapter = prefs2.enableLabelInDock.getAdapter(),
                     label = stringResource(id = R.string.show_labels),
                 )
+                SwitchPreference(
+                    adapter = prefs2.enableHotseatPrediction.getAdapter(),
+                    label = stringResource(id = R.string.hotseat_prediction_label),
+                    description = stringResource(id = R.string.hotseat_prediction_description),
+                )
             }
         }
     }

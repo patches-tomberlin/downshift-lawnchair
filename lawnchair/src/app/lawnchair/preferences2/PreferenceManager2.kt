@@ -535,6 +535,16 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = true,
     )
 
+    /**
+     * Independent of [enableGlobalPrediction] -- that one gates all-apps + widget suggestions;
+     * this one only gates whether removing a dock icon lets a suggested app fill the empty slot.
+     * See [app.lawnchair.predictions.LawnchairAppPredictor.updates], the only place this is read.
+     */
+    val enableHotseatPrediction = preference(
+        key = booleanPreferencesKey(name = "enable_hotseat_prediction"),
+        defaultValue = true,
+    )
+
     val predictionMode = preference(
         key = stringPreferencesKey(name = "prediction_mode"),
         defaultValue = PredictionMode.fromString(context.getString(R.string.config_default_prediction_mode)),

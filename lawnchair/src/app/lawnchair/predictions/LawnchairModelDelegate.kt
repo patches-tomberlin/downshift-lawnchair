@@ -165,6 +165,12 @@ class LawnchairModelDelegate @Inject constructor(
             .combine(prefs2.predictionMode.get()) { enabled, mode ->
                 if (enabled) mode else NoPredictor
             }
+            // Kept alongside the mode so a hotseat-only toggle still triggers a recompute --
+            // .distinctUntilChanged() below would otherwise not see it, since it only compares
+            // the combined value coming out of this chain.
+            .combine(prefs2.enableHotseatPrediction.get()) { mode, hotseatEnabled ->
+                mode to hotseatEnabled
+            }
             .distinctUntilChanged()
             .drop(1) // Skip
             .onEach { MODEL_EXECUTOR.execute { recreatePredictors() } }

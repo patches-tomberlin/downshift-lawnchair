@@ -360,6 +360,8 @@
     <string name="icon_sizes">Icon size</string>
 
     <string name="show_labels">Show labels</string>
+    <string name="hotseat_prediction_label">Suggest apps for empty slots</string>
+    <string name="hotseat_prediction_description">Fill an empty dock slot with a suggested app. Doesn\'t affect All Apps suggestions.</string>
     <string name="label_size">Label size</string>
     <string name="twoline_label">Use multiple lines</string>
 

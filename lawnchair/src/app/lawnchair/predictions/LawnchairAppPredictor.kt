@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
+import app.lawnchair.preferences2.PreferenceManager2
+import app.lawnchair.preferences2.firstCached
 import com.android.launcher3.InvariantDeviceProfile
 import com.android.launcher3.LauncherModel
 import com.android.launcher3.logger.LauncherAtom.ItemInfo
@@ -46,6 +48,7 @@ private val PRUNE_INTERVAL = 1.hours
  */
 class LawnchairAppPredictor(private val context: Context) : StatsLogCompatManager.StatsLogConsumer {
 
+    private val prefs2: PreferenceManager2 by lazy { PreferenceManager2.getInstance(context) }
     private val userCache = UserCache.INSTANCE.get(context)
     private val predictionManager = LawnchairPredictionManager.getInstance(context)
     private val hotseatStore = predictionManager.hotseatStore
@@ -159,11 +162,15 @@ class LawnchairAppPredictor(private val context: Context) : StatsLogCompatManage
             idp.numDatabaseAllAppsColumns,
             currentDismissedApps,
         )
-        val hotseatTargets = predictionEngine.compileAppTargets(
-            hotseatCandidateRanked,
-            idp.numDatabaseHotseatIcons,
-            excludedHotseatItems,
-        )
+        val hotseatTargets = if (prefs2.enableHotseatPrediction.firstCached()) {
+            predictionEngine.compileAppTargets(
+                hotseatCandidateRanked,
+                idp.numDatabaseHotseatIcons,
+                excludedHotseatItems,
+            )
+        } else {
+            emptyList()
+        }
         val widgetTargets = predictionEngine.compileWidgetTargets(
             widgetCandidateRanked,
             dataModel,
