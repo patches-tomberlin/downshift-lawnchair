@@ -105,14 +105,7 @@ class LawnQsbLayout(context: Context, attrs: AttributeSet?) : FrameLayout(contex
                             onQsbClick = {
                                 val launcher = context.launcher
                                 launcher.lifecycleScope.launch {
-                                    if (prefs2.matchHotseatQsbStyle.firstCached()) {
-                                        val searchUiManager = launcher.appsView.searchUiManager
-                                        searchUiManager.setDirectFocus(true)
-                                        searchUiManager.editText?.showKeyboard()
-                                        launcher.animateToAllApps()
-                                    } else {
-                                        searchProvider.launch(launcher)
-                                    }
+                                    searchProvider.launch(launcher)
                                 }
                             },
                             onQsbLongClick = ::openOptions,
@@ -180,7 +173,7 @@ class LawnQsbLayout(context: Context, attrs: AttributeSet?) : FrameLayout(contex
         R.drawable.ic_setting,
         StatsLogManager.LauncherEvent.IGNORE,
     ) {
-        context.startActivity(PreferenceActivity.createIntent(context, Search()))
+        context.startActivity(PreferenceActivity.createIntent(context, Search))
         true
     }
 

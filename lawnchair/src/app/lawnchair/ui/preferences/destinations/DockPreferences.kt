@@ -79,7 +79,6 @@ fun DockPreferences(modifier: Modifier = Modifier) {
                     HotseatBackgroundSettings(prefs, prefs2)
                 }
             }
-            SearchBarPreference(SearchRoute.DOCK_SEARCH)
             GridSettings(prefs, prefs2)
             PreferenceGroup(heading = stringResource(id = R.string.icons)) {
                 SwitchPreference(

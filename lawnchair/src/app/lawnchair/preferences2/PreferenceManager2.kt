@@ -745,12 +745,6 @@ class PreferenceManager2 @Inject constructor(
         onSet = { reloadHelper.reloadGrid() },
     )
 
-    val matchHotseatQsbStyle = preference(
-        key = booleanPreferencesKey(name = "use_drawer_search_icon"),
-        defaultValue = false,
-        onSet = { reloadHelper.recreate() },
-    )
-
     val webSuggestionProvider = preference(
         key = stringPreferencesKey(name = "web_suggestion_provider"),
         defaultValue = WebSearchProvider.fromString(

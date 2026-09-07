@@ -13,16 +13,19 @@ import app.lawnchair.preferences.not
 import app.lawnchair.preferences.preferenceManager
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.preferences2.preferenceManager2
+import app.lawnchair.qsb.providers.QsbSearchProvider
 import app.lawnchair.search.algorithms.LawnchairSearchAlgorithm
 import app.lawnchair.search.algorithms.engine.provider.web.CustomWebSearchProvider
 import app.lawnchair.ui.preferences.LocalNavController
 import app.lawnchair.ui.preferences.components.HiddenAppsInSearchPreference
+import app.lawnchair.ui.preferences.components.NavigationActionPreference
 import app.lawnchair.ui.preferences.components.controls.ListPreference
 import app.lawnchair.ui.preferences.components.controls.ListPreferenceEntry
 import app.lawnchair.ui.preferences.components.controls.MainSwitchPreference
 import app.lawnchair.ui.preferences.components.controls.SwitchPreference
 import app.lawnchair.ui.preferences.components.controls.TwoTargetSwitchPreference
 import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
+import app.lawnchair.ui.preferences.navigation.DockSearchProvider
 import app.lawnchair.ui.preferences.navigation.SearchProviderPreference
 import app.lawnchair.util.FileAccessManager
 import com.android.launcher3.R
@@ -57,10 +60,22 @@ fun DrawerSearchPreference(
             SearchProvider(
                 context = context,
             )
+        }
+
+        val hotseatQsbProviderAdapter by prefs2.hotseatQsbProvider.getAdapter()
+        PreferenceGroup(heading = stringResource(R.string.style)) {
+            NavigationActionPreference(
+                label = stringResource(R.string.search_provider),
+                destination = DockSearchProvider,
+                subtitle = stringResource(
+                    id = QsbSearchProvider.values()
+                        .first { it == hotseatQsbProviderAdapter }
+                        .name,
+                ),
+            )
             SwitchPreference(
-                label = stringResource(R.string.allapps_match_qsb_style_label),
-                description = stringResource(R.string.allapps_match_qsb_style_description),
-                adapter = prefs2.matchHotseatQsbStyle.getAdapter(),
+                adapter = prefs2.themedHotseatQsb.getAdapter(),
+                label = stringResource(id = R.string.apply_accent_color_label),
             )
         }
 

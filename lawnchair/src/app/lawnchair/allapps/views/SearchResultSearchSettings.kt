@@ -7,7 +7,6 @@ import android.widget.LinearLayout
 import androidx.core.view.ViewCompat
 import app.lawnchair.search.adapter.SearchTargetCompat
 import app.lawnchair.ui.preferences.PreferenceActivity
-import app.lawnchair.ui.preferences.destinations.SearchRoute
 import app.lawnchair.ui.preferences.navigation.Search
 import com.android.launcher3.R
 
@@ -21,7 +20,7 @@ class SearchResultSearchSettings(context: Context, attrs: AttributeSet?) :
         super.onFinishInflate()
         iconButton = ViewCompat.requireViewById(this, R.id.search_settings)
         iconButton.setOnClickListener {
-            context.startActivity(PreferenceActivity.createIntent(context, Search(SearchRoute.DRAWER_SEARCH)))
+            context.startActivity(PreferenceActivity.createIntent(context, Search))
         }
     }
 

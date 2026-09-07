@@ -1,7 +1,6 @@
 package app.lawnchair.ui.preferences.navigation
 
 import app.lawnchair.ui.preferences.components.search.SearchProviderId
-import app.lawnchair.ui.preferences.destinations.SearchRoute
 import app.lawnchair.ui.preferences.destinations.ShapeRoute
 import kotlinx.serialization.Serializable
 
@@ -59,11 +58,10 @@ data object AppDrawer : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/app-drawer"
 }
 
-// technically the search screen, selectedId selects the default tab inside this
+// App-drawer search settings -- the dock's own search bar was removed, so this no longer has
+// a Dock/Drawer tab pair to choose between (see SearchPreferences.kt).
 @Serializable
-data class Search(val selectedId: SearchRoute = SearchRoute.DOCK_SEARCH) :
-    PreferenceRootRoute,
-    PreferenceDeepLink {
+data object Search : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/search"
 }
 

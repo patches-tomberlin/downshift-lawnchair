@@ -161,7 +161,6 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
                     getSearchProvider(context, searchProviderPref)
                 }
                 val themedQsb by prefs2.themedHotseatQsb.asState()
-                val shouldShowIcons by prefs2.matchHotseatQsbStyle.asState()
 
                 val supportsLens = searchProvider == Google || searchProvider == PixelSearch
                 val voiceIntent = remember(searchProvider, context) {
@@ -174,7 +173,7 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
                 val state = rememberAllAppsQsbState(
                     searchProvider = searchProvider,
                     themed = themedQsb,
-                    shouldShowIcons = shouldShowIcons,
+                    shouldShowIcons = false,
                     queryEmpty = queryEmpty,
                     showMic = voiceIntent != null,
                     showLens = lensIntent != null,
@@ -209,16 +208,7 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
                         input.requestFocus()
                         input.showKeyboard()
                     },
-                    onStartIconClick = if (shouldShowIcons) {
-                        {
-                            val launcher = context.launcher
-                            launcher.lifecycleScope.launch {
-                                searchProvider.launch(launcher)
-                            }
-                        }
-                    } else {
-                        null
-                    },
+                    onStartIconClick = null,
                     onEndIconClick = { id ->
                         when (id) {
                             QsbIconId.MIC -> voiceIntent?.let { context.startActivity(it) }

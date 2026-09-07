@@ -182,11 +182,8 @@ fun PreferenceNavigation(
         ) { AppDrawerFoldersPreference() }
 
         composable<Search>(
-            deepLinks = getDeepLink(Search()),
-        ) { backStackEntry ->
-            val route: Search = backStackEntry.toRoute()
-            SearchPreferences(currentTab = route.selectedId)
-        }
+            deepLinks = getDeepLink(Search),
+        ) { SearchPreferences() }
         composable<SearchProviderPreference>(
             deepLinks = getDeepLink(SearchProviderPreference(SearchProviderId.entries.first())),
         ) { backStackEntry ->
